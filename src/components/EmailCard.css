@@ -33,6 +33,17 @@
 
 .email-card.priority-high {
   border-left: 4px solid #ef4444;
+  background: linear-gradient(90deg, #fef2f2 0%, white 100%);
+}
+
+.email-card.priority-medium {
+  border-left: 4px solid #f59e0b;
+  background: linear-gradient(90deg, #fffbeb 0%, white 100%);
+}
+
+.email-card.priority-low {
+  border-left: 4px solid #10b981;
+  background: linear-gradient(90deg, #f0fdf4 0%, white 100%);
 }
 
 .email-card.processing {
@@ -104,6 +115,32 @@
 
 .priority-indicator {
   font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.priority-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 0.5rem;
+}
+
+.priority-badge.priority-high {
+  background: #ef4444;
+  color: white;
+}
+
+.priority-badge.priority-medium {
+  background: #f59e0b;
+  color: white;
+}
+
+.priority-badge.priority-low {
+  background: #10b981;
+  color: white;
 }
 
 .unread-dot {

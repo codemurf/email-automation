@@ -127,46 +127,167 @@ function App() {
 
   const fetchEmailsAndTasks = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/agents/report`);
+      // First try to get emails from backend
+      const response = await fetch(`${API_BASE_URL}/integrations/gmail/emails`);
       const data = await response.json();
       
-      if (data.status === 'success' && data.report) {
-        const report = data.report;
+      let parsedEmails: Email[] = [];
+      
+      if (data.emails && data.emails.length > 0) {
+        // Analyze email priority using AI
+        const emailsWithPriority = await Promise.all(
+          data.emails.map(async (email: any, index: number) => {
+            // Use AI to determine priority if not already set
+            let priority = email.priority || 'medium';
+            let category = email.category || 'personal';
+            
+            // If priority is not set, use AI to analyze it
+            if (!email.priority) {
+              try {
+                const priorityResponse = await fetch(`${API_BASE_URL}/chat/chat`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    message: `Analyze this email priority: "${email.subject}" - respond with HIGH, MEDIUM, or LOW only`
+                  })
+                });
+                
+                const priorityData = await priorityResponse.json();
+                if (priorityData.response) {
+                  const aiPriority = priorityData.response.toUpperCase();
+                  if (['HIGH', 'MEDIUM', 'LOW'].includes(aiPriority)) {
+                    priority = aiPriority.toLowerCase() as 'high' | 'medium' | 'low';
+                  }
+                }
+              } catch (error) {
+                console.log('AI priority analysis failed, using default:', error);
+                // Fallback to rule-based priority
+                if (email.subject && email.subject.toLowerCase().includes('urgent')) {
+                  priority = 'high';
+                } else if (email.subject && email.subject.toLowerCase().includes('important')) {
+                  priority = 'medium';
+                }
+              }
+            }
+            
+            // Determine category
+            if (email.subject) {
+              const subject = email.subject.toLowerCase();
+              if (subject.includes('urgent') || subject.includes('asap')) {
+                category = 'urgent';
+              } else if (subject.includes('meeting') || subject.includes('project')) {
+                category = 'work';
+              } else if (subject.includes('newsletter') || subject.includes('notification')) {
+                category = 'notification';
+              }
+            }
+            
+            return {
+              id: email.id || `email-${index}`,
+              subject: email.subject || 'No Subject',
+              from: email.from || 'Unknown',
+              date: email.date || new Date().toISOString(),
+              snippet: email.snippet || email.body?.substring(0, 100) || '',
+              category: category,
+              priority: priority,
+              isUnread: email.unread !== undefined ? email.unread : true,
+              body: email.body || email.snippet || ''
+            };
+          })
+        );
         
-        if (report.emails && report.emails.length > 0) {
-          const parsedEmails: Email[] = report.emails.map((email: any, index: number) => ({
-            id: email.id || `email-${index}`,
-            subject: email.subject || 'No Subject',
-            from: email.from || 'Unknown',
-            date: email.date || new Date().toISOString(),
-            snippet: email.snippet || email.body?.substring(0, 100) || '',
-            category: email.category || 'personal',
-            priority: email.priority || (email.category === 'urgent' ? 'high' : 'medium'),
-            isUnread: email.unread !== undefined ? email.unread : true,
-            body: email.body || email.snippet || ''
+        parsedEmails = emailsWithPriority;
+        setEmails(parsedEmails);
+        
+        // Create tasks from work emails
+        const workTasks: Task[] = parsedEmails
+          .filter(email => email.category === 'work')
+          .map((email, index) => {
+            const statusMatch = email.subject.match(/\((.*?)\)$/);
+            
+            return {
+              id: `task-${index}`,
+              title: email.subject,
+              status: statusMatch ? (statusMatch[1] as any) : 'Open',
+              priority: email.priority,
+              source: email.subject,
+              completed: !!(statusMatch && statusMatch[1] === 'Closed'),
+              dueDate: undefined
+            };
+          });
+        setTasks(workTasks);
+      } else {
+        // Fallback to mock emails if backend doesn't have any
+        const mockEmails: Email[] = [
+          {
+            id: 'mock-1',
+            subject: '🚨 URGENT: Quarterly Report Due Tomorrow',
+            from: 'boss@company.com',
+            date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            snippet: 'Please submit your quarterly report by EOD tomorrow...',
+            category: 'urgent',
+            priority: 'high',
+            isUnread: true,
+            body: 'Hi Team, Just a friendly reminder that quarterly reports are due tomorrow by end of day...'
+          },
+          {
+            id: 'mock-2',
+            subject: 'Team Meeting Rescheduled to Wednesday',
+            from: 'team-lead@company.com',
+            date: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+            snippet: 'Due to a scheduling conflict, our weekly team meeting has been rescheduled...',
+            category: 'work',
+            priority: 'medium',
+            isUnread: true,
+            body: 'Hi Team, Due to a scheduling conflict, our weekly team meeting has been rescheduled...'
+          },
+          {
+            id: 'mock-3',
+            subject: 'Weekly Tech Newsletter - Latest Updates',
+            from: 'noreply@technews.com',
+            date: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+            snippet: 'This week in tech: AI breakthroughs, cloud computing trends...',
+            category: 'notification',
+            priority: 'low',
+            isUnread: false,
+            body: 'Weekly Tech News Digest: 1. AI Breakthroughs, 2. Cloud Computing Trends...'
+          }
+        ];
+        
+        setEmails(mockEmails);
+        
+        const workTasks: Task[] = mockEmails
+          .filter(email => email.category === 'work')
+          .map((email, index) => ({
+            id: `task-${index}`,
+            title: email.subject,
+            status: 'Open',
+            priority: email.priority,
+            source: email.subject,
+            completed: false,
+            dueDate: undefined
           }));
-          setEmails(parsedEmails);
-          
-          const workTasks: Task[] = parsedEmails
-            .filter(email => email.category === 'work')
-            .map((email, index) => {
-              const statusMatch = email.subject.match(/\((.*?)\)$/);
-              
-              return {
-                id: `task-${index}`,
-                title: email.subject,
-                status: statusMatch ? (statusMatch[1] as any) : 'Open',
-                priority: email.priority,
-                source: email.subject,
-                completed: !!(statusMatch && statusMatch[1] === 'Closed'),
-                dueDate: undefined
-              };
-            });
-          setTasks(workTasks);
-        }
+        setTasks(workTasks);
       }
     } catch (error) {
       console.error('Error fetching emails and tasks:', error);
+      // Set fallback mock emails on error
+      const mockEmails: Email[] = [
+        {
+          id: 'fallback-1',
+          subject: '🚨 URGENT: Action Required - System Alert',
+          from: 'system@company.com',
+          date: new Date().toISOString(),
+          snippet: 'Critical system alert requires immediate attention...',
+          category: 'urgent',
+          priority: 'high',
+          isUnread: true,
+          body: 'A critical system alert has been detected and requires immediate attention...'
+        }
+      ];
+      setEmails(mockEmails);
     }
   };
 
@@ -323,7 +444,7 @@ function App() {
             {/* Stats Bar - Compact */}
             <div className="stats-compact">
               <div className="stat-compact blue">
-                <span className="stat-icon">�</span>
+                <span className="stat-icon">📥</span>
                 <span className="stat-count">{emails.filter(e => e.columnId === 'inbox' || !e.columnId).length}</span>
                 <span className="stat-label">Inbox</span>
               </div>

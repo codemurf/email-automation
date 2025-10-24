@@ -70,7 +70,12 @@ const EmailKanban: React.FC<EmailKanbanProps> = ({ emails = [], onReplyEmail, on
   // Initialize emails in inbox column
   useEffect(() => {
     if (emails.length > 0) {
-      const emailsWithColumn = emails.map(email => ({
+      // Sort emails by date (latest first) and limit to 20
+      const sortedEmails = emails
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 20);
+
+      const emailsWithColumn = sortedEmails.map(email => ({
         ...email,
         columnId: email.columnId || 'inbox'
       }));

@@ -87,7 +87,11 @@ const EmailCard: React.FC<EmailCardProps> = ({ email, isDragging, isProcessing }
       <div className="card-header">
         <div className="card-icons">
           <span className="category-icon">{getCategoryIcon(email.category)}</span>
-          {email.priority === 'high' && <span className="priority-indicator">🔴</span>}
+          <span className={`priority-indicator priority-${email.priority}`}>
+            {email.priority === 'high' && '🔴'}
+            {email.priority === 'medium' && '🟡'}
+            {email.priority === 'low' && '🟢'}
+          </span>
           {email.isUnread && <span className="unread-dot">●</span>}
         </div>
         <span className="card-date">{formatDate(email.date)}</span>
@@ -102,6 +106,9 @@ const EmailCard: React.FC<EmailCardProps> = ({ email, isDragging, isProcessing }
       <div className="card-footer">
         <span className={`category-badge ${email.category}`}>
           {email.category}
+        </span>
+        <span className={`priority-badge priority-${email.priority}`}>
+          {email.priority.toUpperCase()}
         </span>
         <span className="drag-handle">⋮⋮</span>
       </div>
