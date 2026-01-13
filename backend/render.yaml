@@ -1,0 +1,25 @@
+# Render.com Deployment Configuration
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: mailgen-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: ALLOWED_ORIGINS
+        value: "*" # Update with your Vercel frontend URL after deployment
+      - key: FRONTEND_URL
+        sync: false # Set this in Render dashboard to your Vercel URL
+      - key: GMAIL_CLIENT_ID
+        sync: false # Set in Render dashboard
+      - key: GMAIL_CLIENT_SECRET
+        sync: false # Set in Render dashboard
+      - key: GMAIL_REDIRECT_URI
+        sync: false # Set to https://your-app.onrender.com/api/v1/auth/gmail/callback
+      - key: MOCK_GMAIL
+        value: "true" # Set to "false" after configuring Gmail credentials

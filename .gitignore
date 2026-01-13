@@ -58,3 +58,5 @@ logs/
 test_*.js
 *_test.js
 tests/
+backend/token.json
+backend/*.json

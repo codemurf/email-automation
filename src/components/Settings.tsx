@@ -1,527 +1,199 @@
-import React, { useState } from 'react';
-import './Settings.css';
-
-interface AccountConfig {
-  gmail: {
-    email: string;
-    clientId: string;
-    clientSecret: string;
-    connected: boolean;
-  };
-  notion: {
-    workspace: string;
-    apiToken: string;
-    databaseId: string;
-    connected: boolean;
-  };
-  slack: {
-    workspaceName: string;
-    webhookUrl: string;
-    channel: string;
-    botToken: string;
-    connected: boolean;
-  };
-}
+import React, { useState, useEffect } from "react";
+import "./Settings.css";
+import { API_BASE_URL } from "../config";
 
 interface SettingsProps {
-  theme: 'dark' | 'light';
+  theme: "dark" | "light";
   onThemeToggle: () => void;
 }
 
 const Settings: React.FC<SettingsProps> = ({ theme, onThemeToggle }) => {
-  const [accounts, setAccounts] = useState<AccountConfig>({
-    gmail: {
-      email: 'abhishek.r@cisinlabs.com',
-      clientId: '',
-      clientSecret: '',
-      connected: true,
-    },
-    notion: {
-      workspace: 'CIS Labs Workspace',
-      apiToken: '',
-      databaseId: '',
-      connected: false,
-    },
-    slack: {
-      workspaceName: 'CIS Labs Team',
-      webhookUrl: '',
-      channel: '#email-summaries',
-      botToken: '',
-      connected: false,
-    },
-  });
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [mockMode, setMockMode] = useState(true);
 
-  const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [showTokens, setShowTokens] = useState({
-    gmail: false,
-    notion: false,
-    slack: false,
-  });
+  // Check Gmail connection status on load
+  useEffect(() => {
+    // Check URL params for OAuth callback result
+    const urlParams = new URLSearchParams(window.location.search);
+    const gmailParam = urlParams.get("gmail");
 
-  const handleSave = (section: 'gmail' | 'notion' | 'slack') => {
-    // Save to localStorage
-    console.log(`Saving ${section} configuration:`, accounts[section]);
-    
-    if (section === 'slack') {
-      localStorage.setItem('slack_webhook_url', accounts.slack.webhookUrl);
-      localStorage.setItem('slack_channel', accounts.slack.channel);
-      localStorage.setItem('slack_workspace', accounts.slack.workspaceName);
-    } else if (section === 'notion') {
-      localStorage.setItem('notion_api_token', accounts.notion.apiToken);
-      localStorage.setItem('notion_database_id', accounts.notion.databaseId);
-      localStorage.setItem('notion_workspace', accounts.notion.workspace);
-    } else if (section === 'gmail') {
-      localStorage.setItem('gmail_email', accounts.gmail.email);
-      localStorage.setItem('gmail_client_id', accounts.gmail.clientId);
-    }
-    
-    setEditingSection(null);
-    alert(`✅ ${section.charAt(0).toUpperCase() + section.slice(1)} settings saved successfully!`);
-  };
+    if (gmailParam === "connected") {
+      setGmailConnected(true);
+      setMockMode(false);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
 
-  const handleTestConnection = async (section: 'gmail' | 'notion' | 'slack') => {
-    console.log(`Testing ${section} connection...`);
-    
-    if (section === 'slack') {
-      try {
-        const response = await fetch('http://localhost:9000/api/v1/integrations/slack/test', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            webhook_url: accounts.slack.webhookUrl,
-            channel: accounts.slack.channel
-          }),
-        });
-
-        if (response.ok) {
-          setAccounts(prev => ({
-            ...prev,
-            slack: { ...prev.slack, connected: true }
-          }));
-          alert(`✅ Slack connection successful! Check ${accounts.slack.channel} for a test message.`);
-        } else {
-          const error = await response.json();
-          alert(`❌ Slack connection failed: ${error.detail || 'Unknown error'}`);
-        }
-      } catch (error) {
-        alert(`❌ Network error: ${error}`);
-      }
+      // Double check status with backend
+      checkGmailStatus();
     } else {
-      // Simulate for other services
-      setTimeout(() => {
-        const success = Math.random() > 0.3;
-        if (success) {
-          setAccounts(prev => ({
-            ...prev,
-            [section]: { ...prev[section], connected: true }
-          }));
-          alert(`✅ ${section.charAt(0).toUpperCase() + section.slice(1)} connection successful!`);
-        } else {
-          alert(`❌ ${section.charAt(0).toUpperCase() + section.slice(1)} connection failed. Please check your credentials.`);
-        }
-      }, 1500);
+      checkGmailStatus();
+    }
+  }, []);
+
+  const checkGmailStatus = async () => {
+    try {
+      console.log("Checking Gmail status...");
+      const response = await fetch(`${API_BASE_URL}/auth/gmail/status`);
+      const data = await response.json();
+      console.log("Gmail status:", data);
+
+      if (data.connected) {
+        setGmailConnected(true);
+        setMockMode(false);
+      } else {
+        setGmailConnected(false);
+        setMockMode(data.mock_mode);
+      }
+    } catch (error) {
+      console.error("Error checking Gmail status:", error);
     }
   };
 
-  const handleDisconnect = (section: 'gmail' | 'notion' | 'slack') => {
-    setAccounts(prev => ({
-      ...prev,
-      [section]: { ...prev[section], connected: false }
-    }));
-    alert(`🔌 ${section.charAt(0).toUpperCase() + section.slice(1)} disconnected`);
+  const handleConnectGmail = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/gmail/connect`);
+      const data = await response.json();
+
+      if (data.auth_url) {
+        // Redirect to Google OAuth
+        window.location.href = data.auth_url;
+      }
+    } catch (error) {
+      console.error("Error connecting Gmail:", error);
+      alert("Failed to connect Gmail. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleInputChange = (
-    section: 'gmail' | 'notion' | 'slack',
-    field: string,
-    value: string
-  ) => {
-    setAccounts(prev => ({
-      ...prev,
-      [section]: { ...prev[section], [field]: value }
-    }));
-  };
-
-  const toggleTokenVisibility = (section: 'gmail' | 'notion' | 'slack') => {
-    setShowTokens(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  const maskToken = (token: string, show: boolean) => {
-    if (!token) return '';
-    if (show) return token;
-    return '•'.repeat(Math.min(token.length, 32));
+  const handleDisconnectGmail = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/auth/gmail/disconnect`, { method: "POST" });
+      setGmailConnected(false);
+      setGmailEmail("");
+      setMockMode(true);
+    } catch (error) {
+      console.error("Error disconnecting Gmail:", error);
+    }
   };
 
   return (
     <div className="settings-container">
       <div className="settings-header">
-        <h1 className="settings-title">⚙️ Settings</h1>
-        <p className="settings-subtitle">Configure your integrations and preferences</p>
+        <h2>Settings</h2>
+        <p className="settings-subtitle">
+          Configure your account and preferences
+        </p>
       </div>
 
-      {/* Theme Settings */}
+      {/* Appearance Section */}
       <div className="settings-section">
         <div className="section-header">
-          <h2 className="section-title">🎨 Appearance</h2>
-          <div className="section-actions">
-            <button className="theme-toggle-btn" onClick={onThemeToggle}>
-              <span className="toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
-              <span className="toggle-text">
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          <h3>Appearance</h3>
+        </div>
+        <div className="section-content">
+          <div className="setting-row">
+            <div className="setting-info">
+              <span className="setting-label">Theme</span>
+              <span className="setting-description">
+                Current: {theme === "dark" ? "Dark" : "Light"}
               </span>
+            </div>
+            <button className="theme-toggle-btn" onClick={onThemeToggle}>
+              {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
             </button>
           </div>
         </div>
-        <div className="section-content">
-          <p className="section-description">
-            Current theme: <strong>{theme === 'dark' ? 'Dark' : 'Light'}</strong>
-          </p>
-        </div>
       </div>
 
-      {/* Gmail Account */}
-      <div className="settings-section">
+      {/* Gmail Connection Section */}
+      <div className="settings-section gmail-section">
         <div className="section-header">
-          <div className="header-left">
-            <div className="service-icon gmail">📧</div>
-            <div>
-              <h2 className="section-title">Gmail Account</h2>
-              <p className="section-subtitle">Connect your Gmail for email automation</p>
-            </div>
+          <div className="section-title-row">
+            <svg
+              className="gmail-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+            >
+              <path
+                fill="#EA4335"
+                d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"
+              />
+            </svg>
+            <h3>Gmail Account</h3>
           </div>
-          <div className="section-actions">
-            <span className={`connection-badge ${accounts.gmail.connected ? 'connected' : 'disconnected'}`}>
-              {accounts.gmail.connected ? '✅ Connected' : '❌ Disconnected'}
-            </span>
-          </div>
+          <span
+            className={`connection-status ${
+              gmailConnected ? "connected" : "disconnected"
+            }`}
+          >
+            {gmailConnected
+              ? "✓ Connected"
+              : mockMode
+              ? "⚡ Demo Mode"
+              : "○ Not Connected"}
+          </span>
         </div>
 
         <div className="section-content">
-          {editingSection === 'gmail' ? (
-            <div className="config-form">
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={accounts.gmail.email}
-                  onChange={(e) => handleInputChange('gmail', 'email', e.target.value)}
-                  placeholder="your-email@gmail.com"
-                />
+          {gmailConnected ? (
+            <div className="connected-state">
+              <div className="connected-info">
+                <span className="connected-email">
+                  {gmailEmail || "Gmail Connected"}
+                </span>
+                <span className="connected-description">
+                  Your Gmail is connected and ready for automation
+                </span>
               </div>
-              <div className="form-group">
-                <label className="form-label">OAuth Client ID</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={accounts.gmail.clientId}
-                  onChange={(e) => handleInputChange('gmail', 'clientId', e.target.value)}
-                  placeholder="Enter your OAuth Client ID"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">OAuth Client Secret</label>
-                <div className="password-input-wrapper">
-                  <input
-                    type={showTokens.gmail ? 'text' : 'password'}
-                    className="form-input"
-                    value={accounts.gmail.clientSecret}
-                    onChange={(e) => handleInputChange('gmail', 'clientSecret', e.target.value)}
-                    placeholder="Enter your OAuth Client Secret"
-                  />
-                  <button
-                    className="toggle-visibility-btn"
-                    onClick={() => toggleTokenVisibility('gmail')}
-                  >
-                    {showTokens.gmail ? '👁️' : '👁️‍🗨️'}
-                  </button>
-                </div>
-              </div>
-              <div className="form-actions">
-                <button className="btn-save" onClick={() => handleSave('gmail')}>
-                  💾 Save Changes
-                </button>
-                <button className="btn-cancel" onClick={() => setEditingSection(null)}>
-                  ✕ Cancel
-                </button>
-              </div>
+              <button
+                className="disconnect-btn"
+                onClick={handleDisconnectGmail}
+              >
+                Disconnect
+              </button>
             </div>
           ) : (
-            <div className="config-display">
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Email:</span>
-                  <span className="info-value">{accounts.gmail.email || 'Not configured'}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Client ID:</span>
-                  <span className="info-value">
-                    {accounts.gmail.clientId ? maskToken(accounts.gmail.clientId, showTokens.gmail) : 'Not configured'}
-                  </span>
-                </div>
-              </div>
-              <div className="action-buttons">
-                <button className="btn-primary" onClick={() => setEditingSection('gmail')}>
-                  ✏️ Edit Configuration
-                </button>
-                {accounts.gmail.connected ? (
-                  <>
-                    <button className="btn-test" onClick={() => handleTestConnection('gmail')}>
-                      🔍 Test Connection
-                    </button>
-                    <button className="btn-danger" onClick={() => handleDisconnect('gmail')}>
-                      🔌 Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <button className="btn-success" onClick={() => handleTestConnection('gmail')}>
-                    🔗 Connect
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Notion Account */}
-      <div className="settings-section">
-        <div className="section-header">
-          <div className="header-left">
-            <div className="service-icon notion">📔</div>
-            <div>
-              <h2 className="section-title">Notion Integration</h2>
-              <p className="section-subtitle">Connect Notion for saving email reports</p>
-            </div>
-          </div>
-          <div className="section-actions">
-            <span className={`connection-badge ${accounts.notion.connected ? 'connected' : 'disconnected'}`}>
-              {accounts.notion.connected ? '✅ Connected' : '❌ Disconnected'}
-            </span>
-          </div>
-        </div>
-
-        <div className="section-content">
-          {editingSection === 'notion' ? (
-            <div className="config-form">
-              <div className="form-group">
-                <label className="form-label">Workspace Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={accounts.notion.workspace}
-                  onChange={(e) => handleInputChange('notion', 'workspace', e.target.value)}
-                  placeholder="Your Workspace Name"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">API Token</label>
-                <div className="password-input-wrapper">
-                  <input
-                    type={showTokens.notion ? 'text' : 'password'}
-                    className="form-input"
-                    value={accounts.notion.apiToken}
-                    onChange={(e) => handleInputChange('notion', 'apiToken', e.target.value)}
-                    placeholder="secret_xxxxxxxxxxxxxxxx"
+            <div className="connect-state">
+              <p className="connect-description">
+                Connect your Gmail account to enable email automation,
+                AI-powered replies, and smart inbox management.
+              </p>
+              <button
+                className="google-connect-btn"
+                onClick={handleConnectGmail}
+                disabled={loading}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   />
-                  <button
-                    className="toggle-visibility-btn"
-                    onClick={() => toggleTokenVisibility('notion')}
-                  >
-                    {showTokens.notion ? '👁️' : '👁️‍🗨️'}
-                  </button>
-                </div>
-                <small className="form-hint">Get your API token from Notion Settings → Integrations</small>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Database ID</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={accounts.notion.databaseId}
-                  onChange={(e) => handleInputChange('notion', 'databaseId', e.target.value)}
-                  placeholder="Enter your Notion database ID"
-                />
-                <small className="form-hint">Found in the database URL after the workspace name</small>
-              </div>
-              <div className="form-actions">
-                <button className="btn-save" onClick={() => handleSave('notion')}>
-                  💾 Save Changes
-                </button>
-                <button className="btn-cancel" onClick={() => setEditingSection(null)}>
-                  ✕ Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="config-display">
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Workspace:</span>
-                  <span className="info-value">{accounts.notion.workspace || 'Not configured'}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">API Token:</span>
-                  <span className="info-value">
-                    {accounts.notion.apiToken ? maskToken(accounts.notion.apiToken, showTokens.notion) : 'Not configured'}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Database ID:</span>
-                  <span className="info-value">
-                    {accounts.notion.databaseId ? maskToken(accounts.notion.databaseId, showTokens.notion) : 'Not configured'}
-                  </span>
-                </div>
-              </div>
-              <div className="action-buttons">
-                <button className="btn-primary" onClick={() => setEditingSection('notion')}>
-                  ✏️ Edit Configuration
-                </button>
-                {accounts.notion.connected ? (
-                  <>
-                    <button className="btn-test" onClick={() => handleTestConnection('notion')}>
-                      🔍 Test Connection
-                    </button>
-                    <button className="btn-danger" onClick={() => handleDisconnect('notion')}>
-                      🔌 Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <button className="btn-success" onClick={() => handleTestConnection('notion')}>
-                    🔗 Connect
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Slack Account */}
-      <div className="settings-section">
-        <div className="section-header">
-          <div className="header-left">
-            <div className="service-icon slack">💬</div>
-            <div>
-              <h2 className="section-title">Slack Integration</h2>
-              <p className="section-subtitle">Connect Slack for sending notifications</p>
-            </div>
-          </div>
-          <div className="section-actions">
-            <span className={`connection-badge ${accounts.slack.connected ? 'connected' : 'disconnected'}`}>
-              {accounts.slack.connected ? '✅ Connected' : '❌ Disconnected'}
-            </span>
-          </div>
-        </div>
-
-        <div className="section-content">
-          {editingSection === 'slack' ? (
-            <div className="config-form">
-              <div className="form-group">
-                <label className="form-label">Workspace Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={accounts.slack.workspaceName}
-                  onChange={(e) => handleInputChange('slack', 'workspaceName', e.target.value)}
-                  placeholder="Your Slack Workspace"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Webhook URL</label>
-                <div className="password-input-wrapper">
-                  <input
-                    type={showTokens.slack ? 'text' : 'password'}
-                    className="form-input"
-                    value={accounts.slack.webhookUrl}
-                    onChange={(e) => handleInputChange('slack', 'webhookUrl', e.target.value)}
-                    placeholder="https://hooks.slack.com/services/..."
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
                   />
-                  <button
-                    className="toggle-visibility-btn"
-                    onClick={() => toggleTokenVisibility('slack')}
-                  >
-                    {showTokens.slack ? '👁️' : '👁️‍🗨️'}
-                  </button>
-                </div>
-                <small className="form-hint">Create a webhook in Slack App Settings → Incoming Webhooks</small>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Channel</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={accounts.slack.channel}
-                  onChange={(e) => handleInputChange('slack', 'channel', e.target.value)}
-                  placeholder="#email-summaries"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Bot Token (Optional)</label>
-                <div className="password-input-wrapper">
-                  <input
-                    type={showTokens.slack ? 'text' : 'password'}
-                    className="form-input"
-                    value={accounts.slack.botToken}
-                    onChange={(e) => handleInputChange('slack', 'botToken', e.target.value)}
-                    placeholder="xoxb-..."
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
                   />
-                  <button
-                    className="toggle-visibility-btn"
-                    onClick={() => toggleTokenVisibility('slack')}
-                  >
-                    {showTokens.slack ? '👁️' : '👁️‍🗨️'}
-                  </button>
-                </div>
-              </div>
-              <div className="form-actions">
-                <button className="btn-save" onClick={() => handleSave('slack')}>
-                  💾 Save Changes
-                </button>
-                <button className="btn-cancel" onClick={() => setEditingSection(null)}>
-                  ✕ Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="config-display">
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Workspace:</span>
-                  <span className="info-value">{accounts.slack.workspaceName || 'Not configured'}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Channel:</span>
-                  <span className="info-value">{accounts.slack.channel || 'Not configured'}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Webhook URL:</span>
-                  <span className="info-value">
-                    {accounts.slack.webhookUrl ? maskToken(accounts.slack.webhookUrl, showTokens.slack) : 'Not configured'}
-                  </span>
-                </div>
-              </div>
-              <div className="action-buttons">
-                <button className="btn-primary" onClick={() => setEditingSection('slack')}>
-                  ✏️ Edit Configuration
-                </button>
-                {accounts.slack.connected ? (
-                  <>
-                    <button className="btn-test" onClick={() => handleTestConnection('slack')}>
-                      🔍 Test Connection
-                    </button>
-                    <button className="btn-danger" onClick={() => handleDisconnect('slack')}>
-                      🔌 Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <button className="btn-success" onClick={() => handleTestConnection('slack')}>
-                    🔗 Connect
-                  </button>
-                )}
-              </div>
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+                {loading ? "Connecting..." : "Connect with Google"}
+              </button>
+              {mockMode && (
+                <p className="demo-notice">
+                  Currently in demo mode with sample emails. Connect Gmail for
+                  real data.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -530,19 +202,20 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeToggle }) => {
       {/* Help Section */}
       <div className="settings-section help-section">
         <div className="section-header">
-          <h2 className="section-title">❓ Need Help?</h2>
+          <h3>About MailGen</h3>
         </div>
         <div className="section-content">
-          <div className="help-links">
-            <button className="help-link" onClick={() => alert('📖 Documentation coming soon!')}>
-              📖 Documentation
-            </button>
-            <button className="help-link" onClick={() => alert('🎥 Video Tutorials coming soon!')}>
-              🎥 Video Tutorials
-            </button>
-            <button className="help-link" onClick={() => alert('💬 Support Chat coming soon!')}>
-              💬 Support Chat
-            </button>
+          <p className="about-text">
+            MailGen is an AI-powered email automation tool that helps you manage
+            your inbox efficiently.
+          </p>
+          <div className="feature-list">
+            <div className="feature-item">✓ Smart email categorization</div>
+            <div className="feature-item">✓ AI-powered reply suggestions</div>
+            <div className="feature-item">
+              ✓ Kanban workflow for email management
+            </div>
+            <div className="feature-item">✓ Task extraction from emails</div>
           </div>
         </div>
       </div>

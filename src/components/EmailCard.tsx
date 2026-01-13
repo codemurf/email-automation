@@ -1,7 +1,15 @@
-import React from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import './EmailCard.css';
+import React from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  Briefcase,
+  User,
+  AlertCircle,
+  Bell,
+  Mail,
+  GripVertical,
+} from "lucide-react";
+import "./EmailCard.css";
 
 interface Email {
   id: string;
@@ -9,18 +17,25 @@ interface Email {
   from: string;
   date: string;
   snippet: string;
-  category: 'work' | 'personal' | 'urgent' | 'notification';
-  priority: 'high' | 'medium' | 'low';
+  category: "work" | "personal" | "urgent" | "notification";
+  priority: "high" | "medium" | "low";
   isUnread: boolean;
+  body?: string;
 }
 
 interface EmailCardProps {
   email: Email;
   isDragging?: boolean;
   isProcessing?: boolean;
+  onClick?: (email: Email) => void;
 }
 
-const EmailCard: React.FC<EmailCardProps> = ({ email, isDragging, isProcessing }) => {
+const EmailCard: React.FC<EmailCardProps> = ({
+  email,
+  isDragging,
+  isProcessing,
+  onClick,
+}) => {
   const {
     attributes,
     listeners,
@@ -38,20 +53,29 @@ const EmailCard: React.FC<EmailCardProps> = ({ email, isDragging, isProcessing }
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'work': return '💼';
-      case 'personal': return '👤';
-      case 'urgent': return '🚨';
-      case 'notification': return '🔔';
-      default: return '📧';
+      case "work":
+        return <Briefcase size={14} />;
+      case "personal":
+        return <User size={14} />;
+      case "urgent":
+        return <AlertCircle size={14} />;
+      case "notification":
+        return <Bell size={14} />;
+      default:
+        return <Mail size={14} />;
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'priority-high';
-      case 'medium': return 'priority-medium';
-      case 'low': return 'priority-low';
-      default: return 'priority-medium';
+      case "high":
+        return "priority-high";
+      case "medium":
+        return "priority-medium";
+      case "low":
+        return "priority-low";
+      default:
+        return "priority-medium";
     }
   };
 
@@ -62,9 +86,9 @@ const EmailCard: React.FC<EmailCardProps> = ({ email, isDragging, isProcessing }
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffHours < 1) return 'Just now';
+    if (diffHours < 1) return "Just now";
     if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
+    if (diffDays === 1) return "Yesterday";
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
   };
@@ -73,32 +97,43 @@ const EmailCard: React.FC<EmailCardProps> = ({ email, isDragging, isProcessing }
     <div
       ref={setNodeRef}
       style={style}
-      className={`email-card ${email.isUnread ? 'unread' : ''} ${getPriorityColor(email.priority)} ${isDragging ? 'dragging' : ''} ${isProcessing ? 'processing' : ''}`}
+      className={`email-card ${
+        email.isUnread ? "unread" : ""
+      } ${getPriorityColor(email.priority)} ${isDragging ? "dragging" : ""} ${
+        isProcessing ? "processing" : ""
+      }`}
       {...attributes}
       {...listeners}
     >
       {isProcessing && (
         <div className="processing-overlay">
-          <div className="processing-spinner">🤖</div>
-          <p>AI Agent is writing reply...</p>
+          <div className="processing-spinner"></div>
+          <p>AI generating reply...</p>
         </div>
       )}
 
       <div className="card-header">
         <div className="card-icons">
-          <span className="category-icon">{getCategoryIcon(email.category)}</span>
-          <span className={`priority-indicator priority-${email.priority}`}>
-            {email.priority === 'high' && '🔴'}
-            {email.priority === 'medium' && '🟡'}
-            {email.priority === 'low' && '🟢'}
+          <span className="category-icon">
+            {getCategoryIcon(email.category)}
           </span>
-          {email.isUnread && <span className="unread-dot">●</span>}
+          <span className={`priority-dot priority-${email.priority}`}></span>
+          {email.isUnread && <span className="unread-dot"></span>}
         </div>
         <span className="card-date">{formatDate(email.date)}</span>
       </div>
 
       <div className="card-content">
-        <h4 className="card-subject">{email.subject}</h4>
+        <h4
+          className="card-subject"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick && onClick(email);
+          }}
+          style={{ cursor: "pointer" }}
+        >
+          {email.subject}
+        </h4>
         <p className="card-from">From: {email.from}</p>
         <p className="card-snippet">{email.snippet}</p>
       </div>
@@ -110,7 +145,9 @@ const EmailCard: React.FC<EmailCardProps> = ({ email, isDragging, isProcessing }
         <span className={`priority-badge priority-${email.priority}`}>
           {email.priority.toUpperCase()}
         </span>
-        <span className="drag-handle">⋮⋮</span>
+        <span className="drag-handle">
+          <GripVertical size={14} />
+        </span>
       </div>
     </div>
   );

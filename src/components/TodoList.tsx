@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
-import './TodoList.css';
+import React, { useState } from "react";
+import {
+  CheckCircle2,
+  RefreshCw,
+  FileText,
+  Clock,
+  Pin,
+  Mail,
+  Calendar,
+  Trash2,
+  CheckSquare,
+} from "lucide-react";
+import "./TodoList.css";
 
 interface Task {
   id: string;
   title: string;
-  status: 'Open' | 'In Progress' | 'Closed' | 'Pending';
-  priority: 'high' | 'medium' | 'low';
+  status: "Open" | "In Progress" | "Closed" | "Pending";
+  priority: "high" | "medium" | "low";
   source: string; // email subject or source
   dueDate?: string;
   completed: boolean;
@@ -17,51 +28,62 @@ interface TodoListProps {
 
 const TodoList: React.FC<TodoListProps> = ({ tasks = [] }) => {
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
 
   const toggleTask = (taskId: string) => {
-    setLocalTasks(prev => prev.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+    setLocalTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
+    );
   };
 
   const deleteTask = (taskId: string) => {
-    setLocalTasks(prev => prev.filter(task => task.id !== taskId));
+    setLocalTasks((prev) => prev.filter((task) => task.id !== taskId));
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Closed': return '✅';
-      case 'In Progress': return '🔄';
-      case 'Open': return '📋';
-      case 'Pending': return '⏳';
-      default: return '📌';
+      case "Closed":
+        return <CheckCircle2 size={14} />;
+      case "In Progress":
+        return <RefreshCw size={14} />;
+      case "Open":
+        return <FileText size={14} />;
+      case "Pending":
+        return <Clock size={14} />;
+      default:
+        return <Pin size={14} />;
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'priority-high';
-      case 'medium': return 'priority-medium';
-      case 'low': return 'priority-low';
-      default: return 'priority-medium';
+      case "high":
+        return "priority-high";
+      case "medium":
+        return "priority-medium";
+      case "low":
+        return "priority-low";
+      default:
+        return "priority-medium";
     }
   };
 
-  const filteredTasks = localTasks.filter(task => {
-    if (filter === 'active') return !task.completed;
-    if (filter === 'completed') return task.completed;
+  const filteredTasks = localTasks.filter((task) => {
+    if (filter === "active") return !task.completed;
+    if (filter === "completed") return task.completed;
     return true;
   });
 
-  const completedCount = localTasks.filter(t => t.completed).length;
+  const completedCount = localTasks.filter((t) => t.completed).length;
   const activeCount = localTasks.length - completedCount;
 
   return (
     <div className="todo-list">
       <div className="todo-header">
         <h2 className="todo-title">
-          <span className="icon">✓</span>
+          <CheckSquare size={20} />
           Task List
         </h2>
         <div className="todo-stats">
@@ -72,20 +94,20 @@ const TodoList: React.FC<TodoListProps> = ({ tasks = [] }) => {
 
       <div className="todo-filters">
         <button
-          className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
+          className={`filter-btn ${filter === "all" ? "active" : ""}`}
+          onClick={() => setFilter("all")}
         >
           All ({localTasks.length})
         </button>
         <button
-          className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
-          onClick={() => setFilter('active')}
+          className={`filter-btn ${filter === "active" ? "active" : ""}`}
+          onClick={() => setFilter("active")}
         >
           Active ({activeCount})
         </button>
         <button
-          className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
-          onClick={() => setFilter('completed')}
+          className={`filter-btn ${filter === "completed" ? "active" : ""}`}
+          onClick={() => setFilter("completed")}
         >
           Completed ({completedCount})
         </button>
@@ -94,18 +116,22 @@ const TodoList: React.FC<TodoListProps> = ({ tasks = [] }) => {
       <div className="tasks-container">
         {filteredTasks.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">📭</div>
+            <div className="empty-icon">
+              <FileText size={32} />
+            </div>
             <p>
-              {filter === 'all' && 'No tasks yet'}
-              {filter === 'active' && 'No active tasks'}
-              {filter === 'completed' && 'No completed tasks'}
+              {filter === "all" && "No tasks yet"}
+              {filter === "active" && "No active tasks"}
+              {filter === "completed" && "No completed tasks"}
             </p>
           </div>
         ) : (
-          filteredTasks.map(task => (
+          filteredTasks.map((task) => (
             <div
               key={task.id}
-              className={`task-item ${task.completed ? 'completed' : ''} ${getPriorityColor(task.priority)}`}
+              className={`task-item ${
+                task.completed ? "completed" : ""
+              } ${getPriorityColor(task.priority)}`}
             >
               <div className="task-left">
                 <input
@@ -122,20 +148,36 @@ const TodoList: React.FC<TodoListProps> = ({ tasks = [] }) => {
               <div className="task-content">
                 <div className="task-header-row">
                   <h4 className="task-title">{task.title}</h4>
-                  <span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}>
+                  <span
+                    className={`task-status ${task.status
+                      .toLowerCase()
+                      .replace(" ", "-")}`}
+                  >
                     {task.status}
                   </span>
                 </div>
                 <div className="task-meta">
-                  <span className="task-source">📧 From: {task.source}</span>
+                  <span className="task-source">
+                    <Mail size={12} /> From: {task.source}
+                  </span>
                   {task.dueDate && (
-                    <span className="task-due">📅 Due: {task.dueDate}</span>
+                    <span className="task-due">
+                      <Calendar size={12} /> Due: {task.dueDate}
+                    </span>
                   )}
-                  <span className={`task-priority ${getPriorityColor(task.priority)}`}>
-                    {task.priority === 'high' && '🔴'}
-                    {task.priority === 'medium' && '🟡'}
-                    {task.priority === 'low' && '🟢'}
-                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} Priority
+                  <span
+                    className={`task-priority ${getPriorityColor(
+                      task.priority
+                    )}`}
+                  >
+                    <span
+                      className={`priority-dot ${getPriorityColor(
+                        task.priority
+                      )}`}
+                    ></span>
+                    {task.priority.charAt(0).toUpperCase() +
+                      task.priority.slice(1)}{" "}
+                    Priority
                   </span>
                 </div>
               </div>
@@ -145,7 +187,7 @@ const TodoList: React.FC<TodoListProps> = ({ tasks = [] }) => {
                 onClick={() => deleteTask(task.id)}
                 title="Delete task"
               >
-                🗑️
+                <Trash2 size={14} />
               </button>
             </div>
           ))
@@ -158,7 +200,7 @@ const TodoList: React.FC<TodoListProps> = ({ tasks = [] }) => {
             <div
               className="progress-fill"
               style={{
-                width: `${(completedCount / localTasks.length) * 100}%`
+                width: `${(completedCount / localTasks.length) * 100}%`,
               }}
             />
           </div>
