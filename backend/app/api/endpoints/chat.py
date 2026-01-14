@@ -27,6 +27,18 @@ async def chat(request: ChatRequest):
     if any(word in message_lower for word in ["read", "show", "open", "full"]) and any(word in message_lower for word in ["1st", "2nd", "3rd", "first", "second", "third", "email 1", "email 2", "email 3", "#1", "#2", "#3", "one", "two", "three"]):
         return await handle_read_email(emails, request.message)
     
+    # Reply to email with tone options
+    if "reply" in message_lower:
+        return await handle_reply_draft(emails, request.message)
+    
+    # Send with specific tone
+    if any(tone in message_lower for tone in ["professional", "friendly", "casual", "formal", "urgent"]) and ("send" in message_lower or "continue" in message_lower or "use" in message_lower):
+        return await handle_send_reply(emails, request.message)
+    
+    # Important emails
+    if "important" in message_lower:
+        return await handle_important_emails(emails)
+    
     if "summarize" in message_lower or "summary" in message_lower:
         return await handle_summarize(emails, request.message)
     
@@ -116,6 +128,190 @@ async def handle_read_email(emails: list, message: str):
 ---
 
 💡 *Tip: Say "reply to this email" to draft a response!*
+"""
+    
+    return {"response": response}
+
+
+# Store last viewed email for reply context
+_last_email_context = {"email": None, "index": 0}
+
+
+async def handle_reply_draft(emails: list, message: str):
+    """Handle reply drafting with tone options"""
+    global _last_email_context
+    
+    if not emails:
+        return {"response": "📭 No emails found. Please connect your Gmail account in Settings."}
+    
+    # Parse which email to reply to
+    message_lower = message.lower()
+    email_index = _last_email_context.get("index", 0)
+    
+    number_map = {
+        '1st': 0, 'first': 0, 'one': 0, '#1': 0, 'email 1': 0, '1': 0,
+        '2nd': 1, 'second': 1, 'two': 1, '#2': 1, 'email 2': 1, '2': 1,
+        '3rd': 2, 'third': 2, 'three': 2, '#3': 2, 'email 3': 2, '3': 2,
+        '4th': 3, 'fourth': 3, 'four': 3, '#4': 3, 'email 4': 3, '4': 4,
+        '5th': 4, 'fifth': 4, 'five': 4, '#5': 4, 'email 5': 4, '5': 5,
+    }
+    
+    for key, idx in number_map.items():
+        if key in message_lower:
+            email_index = idx
+            break
+    
+    if email_index >= len(emails):
+        email_index = 0
+    
+    email = emails[email_index]
+    _last_email_context = {"email": email, "index": email_index}
+    
+    # Generate preview draft with AI
+    preview_reply = await ai_service.generate_email_reply(
+        email.get('subject', ''),
+        email.get('body', email.get('snippet', '')),
+        email.get('from', ''),
+        'professional'  # Default tone for preview
+    )
+    
+    response = f"""✉️ **Draft Reply to Email #{email_index + 1}**
+
+---
+
+**📌 Replying to:** {email.get('subject', 'No Subject')}
+**👤 From:** {email.get('from', 'Unknown')}
+
+---
+
+**📝 Draft Reply (Professional):**
+
+{preview_reply[:500]}...
+
+---
+
+**🎨 Choose a tone to continue:**
+
+• 💼 Say **"use professional"** - Formal business tone
+• 😊 Say **"use friendly"** - Warm and approachable  
+• ⚡ Say **"use urgent"** - Time-sensitive response
+• 🎯 Say **"use casual"** - Relaxed and informal
+
+Or type: **"send professional reply"** to send immediately!
+"""
+    
+    return {"response": response}
+
+
+async def handle_send_reply(emails: list, message: str):
+    """Handle sending reply with selected tone"""
+    global _last_email_context
+    
+    email = _last_email_context.get("email")
+    
+    if not email:
+        if not emails:
+            return {"response": "📭 No emails found. Please first view an email using 'show me 1st email'."}
+        email = emails[0]
+    
+    # Determine tone from message
+    message_lower = message.lower()
+    tone = "professional"
+    
+    if "friendly" in message_lower:
+        tone = "friendly"
+    elif "casual" in message_lower:
+        tone = "casual"
+    elif "urgent" in message_lower:
+        tone = "urgent"
+    elif "formal" in message_lower:
+        tone = "professional"
+    
+    # Generate the full reply
+    reply_content = await ai_service.generate_email_reply(
+        email.get('subject', ''),
+        email.get('body', email.get('snippet', '')),
+        email.get('from', ''),
+        tone
+    )
+    
+    # Send the reply
+    result = await gmail_service.send_reply(email.get('id'), reply_content)
+    
+    tone_icons = {'professional': '💼', 'friendly': '😊', 'urgent': '⚡', 'casual': '🎯'}
+    
+    if result.get('success'):
+        response = f"""✅ **Reply Sent Successfully!**
+
+---
+
+**📌 To:** {email.get('from', 'Unknown')}
+**📝 Subject:** Re: {email.get('subject', 'No Subject')}
+**🎨 Tone:** {tone_icons.get(tone, '📧')} {tone.capitalize()}
+
+---
+
+**📧 Sent Message:**
+
+{reply_content}
+
+---
+
+🎉 Email sent! Need anything else?
+"""
+    else:
+        response = f"""⚠️ **Reply Generated (Demo Mode)**
+
+Since Gmail is not fully connected, here's the reply that would be sent:
+
+---
+
+**📌 To:** {email.get('from', 'Unknown')}
+**📝 Subject:** Re: {email.get('subject', 'No Subject')}
+**🎨 Tone:** {tone_icons.get(tone, '📧')} {tone.capitalize()}
+
+---
+
+{reply_content}
+
+---
+
+💡 *Connect Gmail in Settings to send emails directly!*
+"""
+    
+    return {"response": response}
+
+
+async def handle_important_emails(emails: list):
+    """Handle important/priority emails request"""
+    if not emails:
+        return {"response": "📭 No emails found. Please connect your Gmail account in Settings."}
+    
+    # Filter important emails (high priority or urgent category)
+    important = [e for e in emails if e.get('priority') == 'high' or e.get('category') == 'urgent' or e.get('category') == 'work']
+    
+    if not important:
+        return {"response": "✅ **No urgent emails!** Your inbox looks calm. 🌿"}
+    
+    response = f"""⭐ **Important Emails ({len(important)})**
+
+"""
+    
+    for i, email in enumerate(important[:5], 1):
+        priority_icon = "🔴" if email.get('priority') == 'high' else "🟡"
+        category_icon = "🚨" if email.get('category') == 'urgent' else "💼" if email.get('category') == 'work' else "📧"
+        
+        response += f"""{priority_icon} **{i}. {email.get('subject', 'No Subject')[:45]}**
+   {category_icon} From: {email.get('from', 'Unknown')[:35]}
+   📝 {email.get('snippet', '')[:60]}...
+
+"""
+    
+    response += """---
+
+💡 **Quick Actions:**
+• Say **"show me 1st email"** to view details
+• Say **"reply to 1st email"** to draft a response
 """
     
     return {"response": response}
