@@ -66,6 +66,10 @@ async def chat(request: ChatRequest):
     if any(k in message_lower for k in ["task", "sub task", "plan", "checklist", "workflow"]):
         return await handle_autonomous_task(request.message)
 
+    # Summarize (Priority over Compose because "emails" contains "mail")
+    if "summarize" in message_lower or "summary" in message_lower:
+        return await handle_summarize(emails, request.message)
+
     # Compose/Send new email
     # Triggers: "send email", "write mail", "draft message", "compose to", "mail to"
     compose_keywords = ["send", "write", "draft", "compose", "create", "mail"]
@@ -78,10 +82,7 @@ async def chat(request: ChatRequest):
         if "reply" not in message_lower:
             return await handle_compose_email(request.message)
 
-    if "summarize" in message_lower or "summary" in message_lower:
-        return await handle_summarize(emails, request.message)
-    
-    elif "urgent" in message_lower:
+    if "urgent" in message_lower:
         return await handle_urgent(emails)
     
     elif "statistic" in message_lower or "stats" in message_lower:
