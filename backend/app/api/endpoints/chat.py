@@ -73,11 +73,17 @@ async def chat(request: ChatRequest):
 
     # Compose/Send new email
     # Triggers: "send email", "write mail", "draft message", "compose to", "mail to"
+    import re
+    # Check for "mail" as a whole word to avoid matching "emails", "gmail" etc.
+    is_mail_verb = bool(re.search(r'\bmail\b', message_lower))
+    
     compose_keywords = ["send", "write", "draft", "compose", "create"]
     noun_keywords = ["email", "mail", "message", "note"]
     
-    if any(k in message_lower for k in compose_keywords) and (
-        any(n in message_lower for n in noun_keywords) or " to " in message_lower or "mail " in message_lower
+    has_compose_verb = any(k in message_lower for k in compose_keywords) or is_mail_verb
+    
+    if has_compose_verb and (
+        any(n in message_lower for n in noun_keywords) or " to " in message_lower or is_mail_verb
     ):
         # Exclude "reply" intent
         if "reply" not in message_lower:
