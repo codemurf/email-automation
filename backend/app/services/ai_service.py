@@ -89,8 +89,8 @@ IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholder
             print(f"AI Generation Error: {e}")
             return f"Hi {sender_name},\n\nThank you for your email regarding '{email_subject}'. I have received it and will respond shortly.\n\nBest regards,\nAbhishek"
 
-    async def generate_new_email(self, recipient: str, subject: str, context: str, tone: str = "professional") -> str:
-        """Generate a new email draft (not a reply)"""
+    async def generate_new_email(self, recipient: str, subject: str, context: str, tone: str = "professional") -> dict:
+        """Generate a new email draft (Subject + Body)"""
         
         # Extract name if possible
         import re
@@ -105,34 +105,37 @@ IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholder
              if email_match:
                 recipient_name = email_match.group(1).split('.')[0].capitalize()
         
+        fallback_body = f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
+        fallback_response = {"subject": subject, "body": fallback_body}
+
         if not self.api_key:
-             return f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
+             return fallback_response
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     f"{self.base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json"
-                    },
+                    headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                     json={
                         "model": self.model,
                         "messages": [
-                            {"role": "user", "content": f"Write a NEW {tone} email to {recipient_name} about '{subject}'. Context: {context}. Start with 'Hi {recipient_name},'. Sign as Abhishek. OUTPUT ONLY THE EMAIL BODY. NO SUBJECT LINE."}
+                            {"role": "system", "content": f"You are a professional email writer. Output JSON only: {{ \"subject\": \"...\", \"body\": \"...\" }}."},
+                            {"role": "user", "content": f"Write a {tone} email to {recipient_name}. Topic: {subject}. Details: {context}. Sign as Abhishek."}
                         ],
                         "temperature": 0.7,
-                        "max_tokens": 1000
+                        "response_format": {"type": "json_object"}
                     }
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return data["choices"][0]["message"]["content"].strip()
+                        content = data["choices"][0]["message"]["content"]
+                        import json
+                        return json.loads(content)
                     else:
-                        return f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
+                        return fallback_response
         except Exception as e:
             print(f"New Email Generation Error: {e}")
-            return f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
+            return fallback_response
 
     async def generate_task_plan(self, user_request: str) -> list:
         """Generate a sequential plan for a complex task"""

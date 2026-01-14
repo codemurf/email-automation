@@ -310,13 +310,23 @@ async def handle_send_reply(emails: list, message: str):
         # If tone changed in this step, regenerate
         # Or if body is missing
         if not body or (any(t in message_lower for t in tone_icons.keys()) and tone != _compose_context.get("tone")):
-             body = await ai_service.generate_new_email(
+             ai_result = await ai_service.generate_new_email(
                 to, 
                 subject,
                 f"Write a new email to {to} about {subject}.", 
                 tone
              )
-        
+             body = ai_result.get("body", "")
+             subject = ai_result.get("subject", subject)
+             
+             # Update context
+             _compose_context["body"] = body
+             _compose_context["subject"] = subject
+             _compose_context["tone"] = tone
+             
+        if not body:
+            return {"response": "⚠️ I couldn't generate an email body. Please try again with more details."}
+
         # Send
         result = await gmail_service.send_email(to, subject, body)
         
@@ -476,40 +486,43 @@ async def handle_compose_email(message: str):
     recipient = recipient.strip(".,?!")
     
     # Generate draft with AI
-    ai_draft = await ai_service.generate_new_email(
+    ai_result = await ai_service.generate_new_email(
         recipient,
         subject,
-        f"Write a new email to {recipient} with subject '{subject}'.",
+        f"Write a new email to {recipient} about {subject}.", 
         "professional"
     )
-
+    
+    # Use AI generated subject if available, otherwise fallback
+    final_subject = ai_result.get("subject", subject)
+    final_body = ai_result.get("body", "")
+    
     _compose_context = {
-        "to": recipient, 
-        "subject": subject, 
-        "body": ai_draft, 
+        "to": recipient,
+        "subject": final_subject,
+        "body": final_body,
         "tone": "professional"
     }
-
+    
     response = f"""✉️ **Drafting New Email**
 
 ---
 
 **📌 To:** {recipient}
-**📝 Subject:** {subject}
+**📝 Subject:** {final_subject}
 
 ---
 
-**Draft Content:**
+**📧 Message Body:**
 
-{ai_draft}
+{final_body}
 
 ---
 
-**🚀 Ready to send?**
-
-• Say **"Send it"** to send now
-• Say **"Change to friendly"** to adjust tone
-• Say **"Add [details]"** to refine
+**Actions:**
+• **Send it**: "send professional reply"
+• **Change Tone**: "use friendly", "use urgent"
+• **Edit**: "change subject to..." (Not implemented yet but you can ask to regenerate)
 """
     return {"response": response}
 
