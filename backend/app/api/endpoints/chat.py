@@ -146,20 +146,41 @@ async def handle_reply_draft(emails: list, message: str):
     
     # Parse which email to reply to
     message_lower = message.lower()
-    email_index = _last_email_context.get("index", 0)
+    email_index = None
+    email = None
     
+    # First try to match by number
     number_map = {
-        '1st': 0, 'first': 0, 'one': 0, '#1': 0, 'email 1': 0, '1': 0,
-        '2nd': 1, 'second': 1, 'two': 1, '#2': 1, 'email 2': 1, '2': 1,
-        '3rd': 2, 'third': 2, 'three': 2, '#3': 2, 'email 3': 2, '3': 2,
-        '4th': 3, 'fourth': 3, 'four': 3, '#4': 3, 'email 4': 3, '4': 4,
-        '5th': 4, 'fifth': 4, 'five': 4, '#5': 4, 'email 5': 4, '5': 5,
+        '1st': 0, 'first': 0, 'one': 0, '#1': 0, 'email 1': 0,
+        '2nd': 1, 'second': 1, 'two': 1, '#2': 1, 'email 2': 1,
+        '3rd': 2, 'third': 2, 'three': 2, '#3': 2, 'email 3': 2,
+        '4th': 3, 'fourth': 3, 'four': 3, '#4': 3, 'email 4': 3,
+        '5th': 4, 'fifth': 4, 'five': 4, '#5': 4, 'email 5': 4,
     }
     
     for key, idx in number_map.items():
         if key in message_lower:
             email_index = idx
             break
+    
+    # If no number found, try to match by sender name
+    if email_index is None:
+        # Extract potential names from message (remove common words)
+        stop_words = ['reply', 'to', 'the', 'email', 'from', 'mail', 'message', 'send', 'write', 'draft', 'a', 'an']
+        words = message_lower.split()
+        search_terms = [w for w in words if w not in stop_words and len(w) > 2]
+        
+        # Search for matching sender
+        for i, e in enumerate(emails):
+            sender = e.get('from', '').lower()
+            subject = e.get('subject', '').lower()
+            if any(term in sender or term in subject for term in search_terms):
+                email_index = i
+                break
+    
+    # If still no match, use last viewed or first email
+    if email_index is None:
+        email_index = _last_email_context.get("index", 0)
     
     if email_index >= len(emails):
         email_index = 0
