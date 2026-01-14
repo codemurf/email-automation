@@ -89,8 +89,7 @@ What would you like me to help you with today?`,
             }));
 
             // Add Welcome message if not present
-            const welcomeMsg = messages[0];
-            setMessages([welcomeMsg, ...mapped]);
+            setMessages((prev) => [prev[0], ...mapped]);
           }
         }
       } catch (e) {
