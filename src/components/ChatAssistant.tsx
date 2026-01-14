@@ -12,8 +12,6 @@ import {
   Lightbulb,
   User,
   Sparkles,
-  MessageSquare,
-  Send,
 } from "lucide-react";
 
 interface Message {

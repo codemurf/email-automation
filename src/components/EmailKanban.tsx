@@ -244,31 +244,6 @@ const EmailKanban: React.FC<EmailKanbanProps> = ({
     });
   };
 
-  const getColumnStats = (columnId: string) => {
-    const column = columns[columnId as keyof typeof columns];
-    const total = column.emails.length;
-    const urgent = column.emails.filter(
-      (e) => e.priority === "high" || e.category === "urgent"
-    ).length;
-    const unread = column.emails.filter((e) => e.isUnread).length;
-    return { total, urgent, unread };
-  };
-
-  const getEmptyColumnIcon = (columnId: string) => {
-    switch (columnId) {
-      case "inbox":
-        return <Inbox size={32} />;
-      case "to-reply":
-        return <MessageSquare size={32} />;
-      case "replying":
-        return <Bot size={32} />;
-      case "sent":
-        return <Send size={32} />;
-      default:
-        return <Mail size={32} />;
-    }
-  };
-
   return (
     <DndContext
       sensors={sensors}
