@@ -367,6 +367,19 @@ body {
   flex-direction: column;
 }
 
+/* Content Area - ensures full height for chat */
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.main-content.chat-view .content-area {
+  height: 100%;
+}
+
 /* ==========================================================================
    SCROLLBAR
    ========================================================================== */

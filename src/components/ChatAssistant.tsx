@@ -497,38 +497,38 @@ What would you like me to help you with today?`,
             </div>
           )}
 
+          {/* Suggested Prompts - Inside messages area */}
+          {messages.length === 1 && (
+            <div className="prompts-section">
+              <div className="prompts-container">
+                <p className={`prompts-title ${theme}`}>
+                  <Lightbulb size={14} /> Try asking:
+                </p>
+                <div className="prompts-grid">
+                  {suggestedPrompts.map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setInput(prompt.text)}
+                      className={`prompt-card ${theme}`}
+                    >
+                      <div className="prompt-content">
+                        <div className={`prompt-icon ${prompt.colorClass}`}>
+                          {prompt.icon}
+                        </div>
+                        <span className={`prompt-text ${theme}`}>
+                          {prompt.text}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
       </div>
-
-      {/* Suggested Prompts */}
-      {messages.length === 1 && (
-        <div className="prompts-section">
-          <div className="prompts-container">
-            <p className={`prompts-title ${theme}`}>
-              <Lightbulb size={14} /> Try asking:
-            </p>
-            <div className="prompts-grid">
-              {suggestedPrompts.map((prompt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setInput(prompt.text)}
-                  className={`prompt-card ${theme}`}
-                >
-                  <div className="prompt-content">
-                    <div className={`prompt-icon ${prompt.colorClass}`}>
-                      {prompt.icon}
-                    </div>
-                    <span className={`prompt-text ${theme}`}>
-                      {prompt.text}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Input Area */}
       <div className={`input-section ${theme}`}>

@@ -125,6 +125,40 @@ Reply:"""
             print(f"Chat Error: {e}")
             return "I'm having trouble connecting right now. Please try again."
 
+    async def chat_with_context(self, message: str, email_context: str) -> str:
+        """Chat with AI including email context"""
+        
+        if not self.api_key:
+            # Provide a helpful response even without API key
+            return f"Based on your emails, here's a summary:\n\n{email_context}\n\nNote: Connect your AI API key for more detailed analysis."
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": f"You are MailGen, an AI email assistant. The user has asked about their emails. Here is the context of their recent emails:\n\n{email_context}\n\nHelp the user by analyzing, summarizing, or answering questions about these emails. Be concise and helpful."},
+                            {"role": "user", "content": message}
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 1500
+                    }
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["choices"][0]["message"]["content"].strip()
+                    else:
+                        return f"I found your emails! Here's a quick overview:\n\n{email_context}"
+        except Exception as e:
+            print(f"Chat with context Error: {e}")
+            return f"Here are your recent emails:\n\n{email_context}"
+
 
 # Singleton instance
 ai_service = AIService()
