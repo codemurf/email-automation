@@ -303,12 +303,53 @@ class GmailService:
             print(f"Reply sent successfully with id: {sent['id']}")
             
             return {
-                "success": True,
+                "success": True, 
                 "id": sent['id'],
-                "message": "Reply sent successfully!"
+                "message": "Reply sent successfully"
             }
         except Exception as e:
             print(f"Error sending reply: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def send_email(self, to: str, subject: str, body: str) -> Dict[str, Any]:
+        """Send a new email"""
+        print(f"Attempting to send email to {to}")
+        
+        if self.mock_mode or not self.is_connected():
+            import asyncio
+            from datetime import datetime
+            await asyncio.sleep(1)
+            print("Mock mode: simulating email sent")
+            return {
+                "success": True,
+                "id": f"new_email_{int(datetime.now().timestamp())}",
+                "message": "Email sent (mock mode)"
+            }
+            
+        try:
+            # Get user's email address
+            profile = self.service.users().getProfile(userId='me').execute()
+            user_email = profile.get('emailAddress', '')
+            
+            message = MIMEText(body)
+            message['from'] = user_email
+            message['to'] = to
+            message['subject'] = subject
+            
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+            
+            sent = self.service.users().messages().send(
+                userId='me',
+                body={'raw': raw}
+            ).execute()
+            
+            return {
+                "success": True,
+                "id": sent['id'],
+                "message": "Email sent successfully"
+            }
+        except Exception as e:
+            print(f"Error sending email: {e}")
             return {"success": False, "error": str(e)}
 
     async def disconnect(self):

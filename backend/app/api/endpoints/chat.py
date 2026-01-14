@@ -146,10 +146,16 @@ async def handle_read_email(emails: list, message: str):
 
 # Store last viewed email for reply context
 _last_email_context = {"email": None, "index": 0}
+# Store compose context
+_compose_context = {"to": None, "subject": None, "body": None, "tone": "professional"}
+# Active mode: 'reply' or 'compose'
+_active_mode = "reply"
 
 
 async def handle_reply_draft(emails: list, message: str):
     """Handle reply drafting with tone options"""
+    global _last_email_context, _active_mode
+    _active_mode = "reply"
     global _last_email_context
     
     if not emails:
@@ -236,28 +242,78 @@ Or type: **"send professional reply"** to send immediately!
 
 
 async def handle_send_reply(emails: list, message: str):
-    """Handle sending reply with selected tone"""
-    global _last_email_context
+    """Handle sending email (reply or new)"""
+    global _last_email_context, _active_mode, _compose_context
     
+    tone_icons = {'professional': '💼', 'friendly': '😊', 'urgent': '⚡', 'casual': '🎯'}
+
+    # Determine tone from message
+    message_lower = message.lower()
+    tone = "professional"
+    if "friendly" in message_lower: tone = "friendly"
+    elif "casual" in message_lower: tone = "casual"
+    elif "urgent" in message_lower: tone = "urgent"
+    elif "formal" in message_lower: tone = "professional"
+    
+    # === COMPOSE MODE ===
+    if _active_mode == "compose":
+        to = _compose_context.get("to")
+        subject = _compose_context.get("subject")
+        body = _compose_context.get("body")
+        
+        if not to:
+             return {"response": "⚠️ I don't know who to send this to. Please say **'Send email to [Name]'** to start."}
+            
+        # If tone changed in this step, regenerate
+        # Or if body is missing
+        if not body or (any(t in message_lower for t in tone_icons.keys()) and tone != _compose_context.get("tone")):
+             body = await ai_service.generate_email_reply(
+                subject, 
+                f"Write a new email to {to} about {subject}. Tone: {tone}.", 
+                to, 
+                tone
+             )
+        
+        # Send
+        result = await gmail_service.send_email(to, subject, body)
+        
+        if result.get('success'):
+            return {"response": f"""✅ **Email Sent Successfully!**
+
+---
+
+**📌 To:** {to}
+**📝 Subject:** {subject}
+**🎨 Tone:** {tone_icons.get(tone, '📧')} {tone.capitalize()}
+
+---
+
+**📧 Sent Message:**
+
+{body}
+
+---
+
+🎉 Email sent!
+"""}
+        else:
+             return {"response": f"""⚠️ **Sending Failed**
+
+I couldn't send the email. Error: {result.get('error')}
+
+---
+
+**Draft Content:**
+{body}
+"""}
+
+    # === REPLY MODE (Default) ===
     email = _last_email_context.get("email")
     
     if not email:
         if not emails:
             return {"response": "📭 No emails found. Please first view an email using 'show me 1st email'."}
         email = emails[0]
-    
-    # Determine tone from message
-    message_lower = message.lower()
-    tone = "professional"
-    
-    if "friendly" in message_lower:
-        tone = "friendly"
-    elif "casual" in message_lower:
-        tone = "casual"
-    elif "urgent" in message_lower:
-        tone = "urgent"
-    elif "formal" in message_lower:
-        tone = "professional"
     
     # Generate the full reply
     reply_content = await ai_service.generate_email_reply(
@@ -269,8 +325,6 @@ async def handle_send_reply(emails: list, message: str):
     
     # Send the reply
     result = await gmail_service.send_reply(email.get('id'), reply_content)
-    
-    tone_icons = {'professional': '💼', 'friendly': '😊', 'urgent': '⚡', 'casual': '🎯'}
     
     if result.get('success'):
         response = f"""✅ **Reply Sent Successfully!**
@@ -316,49 +370,77 @@ Since Gmail is not fully connected, here's the reply that would be sent:
 
 async def handle_compose_email(message: str):
     """Handle composing and sending a new email"""
+    global _compose_context, _active_mode
+    _active_mode = "compose"
     
-    # Simple extraction (naive)
-    stop_words = ['send', 'email', 'to', 'mail', 'write', 'draft', 'a', 'an']
+    # Extract recipient and subject
+    # Pattern: "send email to [who] about [what]"
     words = message.split()
-    recipient = "Unknown Recipient"
+    recipient = None
+    subject = "Status Update" # Default
     
     if "to" in words:
         try:
-            recipient_idx = words.index("to") + 1
-            recipient = words[recipient_idx]
-            # Try to grab full name if available
-            if recipient_idx + 1 < len(words):
-                recipient += " " + words[recipient_idx + 1]
+            start_idx = words.index("to") + 1
+            # Find where 'about' starts, or end of string
+            end_idx = len(words)
+            if "about" in words:
+                end_idx = words.index("about")
+            
+            recipient_words = words[start_idx:end_idx]
+            recipient = " ".join(recipient_words)
+            
+            # Remove punctuation
+            recipient = recipient.strip(".,?!")
         except:
             pass
             
+    if "about" in words:
+        try:
+            start_idx = words.index("about") + 1
+            subject_words = words[start_idx:]
+            subject = " ".join(subject_words).capitalize()
+        except:
+            pass
+
+    if not recipient:
+        return {"response": "✉️ To whom should I send this email? Please say **'Send email to [Name/Email]'**."}
+
+    # Generate draft with AI
+    ai_draft = await ai_service.generate_email_reply(
+        subject,
+        f"Write a new email to {recipient} about {subject}. Tone: Professional.",
+        recipient,
+        "professional"
+    )
+
+    _compose_context = {
+        "to": recipient, 
+        "subject": subject, 
+        "body": ai_draft, 
+        "tone": "professional"
+    }
+
     response = f"""✉️ **Drafting New Email**
 
 ---
 
 **📌 To:** {recipient}
-**📝 Subject:** [Auto-Generated Subject]
+**📝 Subject:** {subject}
 
 ---
 
 **Draft Content:**
 
-*Hi {recipient},*
-
-*I am writing to you regarding...*
-
-[AI is ready to draft this email for you.]
+{ai_draft}
 
 ---
 
-**🚀 Action Required:**
+**🚀 Ready to send?**
 
-To send this email, please provide:
-1. **Topic/Subject**
-2. **Main Message**
-3. **Tone** (Professional, Friendly, Urgent)
-
-Example: *"Send a friendly email to {recipient} about the upcoming meeting on Friday."*
+• Say **"Send it"** to send now
+• Say **"Change to friendly"** to adjust tone
+• Say **"Add [details]"** to refine
 """
     return {"response": response}
 
