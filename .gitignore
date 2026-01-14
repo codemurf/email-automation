@@ -60,3 +60,4 @@ test_*.js
 tests/
 backend/token.json
 backend/*.json
+backend/data/
