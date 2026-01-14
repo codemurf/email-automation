@@ -73,6 +73,34 @@ What would you like me to help you with today?`,
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Load chat history
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/chat/history`);
+        if (res.ok) {
+          const history = await res.json();
+          if (history && history.length > 0) {
+            const mapped = history.map((h: any) => ({
+              id: h.id || Date.now().toString(),
+              role: h.role,
+              content: h.content,
+              timestamp: h.timestamp ? new Date(h.timestamp) : new Date(),
+            }));
+
+            // Add Welcome message if not present
+            const welcomeMsg = messages[0];
+            setMessages([welcomeMsg, ...mapped]);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load history", e);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);

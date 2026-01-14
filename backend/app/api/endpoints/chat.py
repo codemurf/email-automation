@@ -3,15 +3,30 @@ from pydantic import BaseModel
 from app.services.ai_service import ai_service
 from app.services.gmail_service import gmail_service
 from app.services.web_search_service import web_search_service
+from app.services.history_service import history_service
 
 router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str
 
+@router.get("/history")
+async def get_history():
+    """Get chat history"""
+    return history_service.load_history()
+
+@router.delete("/history")
+async def clear_history():
+    """Clear chat history"""
+    history_service.clear_history()
+    return {"status": "success", "message": "History cleared"}
+
 @router.post("/")
 async def chat(request: ChatRequest):
     """AI-powered chat endpoint with email context"""
+    
+    # Save user message
+    history_service.save_message("user", request.message)
     
     message_lower = request.message.lower()
     
@@ -88,11 +103,19 @@ async def chat(request: ChatRequest):
     # General email query with context
     elif any(keyword in message_lower for keyword in ["email", "emails", "inbox", "mail", "unread"]):
         email_context = build_email_context(emails)
-        response = await ai_service.chat_with_context(request.message, email_context)
+        
+        # Add chat history context to help AI understand if "mails" refers to inbox or previous search results
+        chat_context = history_service.get_recent_context(limit=3)
+        full_context = f"PREVIOUS CHAT:\n{chat_context}\n\nUSER'S INBOX CONTEXT:\n{email_context}"
+        
+        response = await ai_service.chat_with_context(request.message, full_context)
+        
+        history_service.save_message("assistant", response)
         return {"response": response}
     
     # Regular chat without email context
     response = await ai_service.chat(request.message)
+    history_service.save_message("assistant", response)
     return {"response": response}
 
 
