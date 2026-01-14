@@ -43,14 +43,11 @@ Subject: {email_subject}
 Content: {email_body}
 
 Write a concise reply that:
-1. Starts with "Hi {sender_name}," as the greeting
-2. Acknowledges the email content
-3. Addresses any questions or concerns
-4. Matches the requested tone: {tone}
-5. Is not too long (2-4 paragraphs max)
-6. Ends with a sign-off like "Best regards,\nAbhishek"
+1. Starts with "Hi {sender_name},"
+2. Matches the requested tone: {tone}
+3. Ends with "Best regards,\nAbhishek"
 
-Reply:"""
+IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholders, or conversational filler like "Here is a draft"."""
 
         try:
             print(f"Calling Z.AI API with model: {self.model}")
@@ -66,7 +63,7 @@ Reply:"""
                     json={
                         "model": self.model,
                         "messages": [
-                            {"role": "user", "content": f"Write a short {tone} email reply to this email. From: {sender}, Subject: {email_subject}, Body: {email_body[:200]}. Sign as Abhishek. Just give me the reply text, nothing else."}
+                            {"role": "user", "content": f"Write a short {tone} email reply to this email. From: {sender}, Subject: {email_subject}, Body: {email_body[:500]}. Sign as Abhishek. OUTPUT ONLY THE REPLY BODY. NO SUBJECT LINE. NO PLACEHOLDERS."}
                         ],
                         "temperature": 0.7,
                         "max_tokens": 2000

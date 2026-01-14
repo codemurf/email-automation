@@ -28,7 +28,8 @@ async def chat(request: ChatRequest):
         return await handle_read_email(emails, request.message)
     
     # Reply to email with tone options
-    if "reply" in message_lower:
+    reply_triggers = ["reply", "draft", "respond", "write to", "answer"]
+    if any(trigger in message_lower for trigger in reply_triggers):
         return await handle_reply_draft(emails, request.message)
     
     # Send with specific tone
