@@ -67,12 +67,12 @@ async def chat(request: ChatRequest):
         return await handle_autonomous_task(request.message)
 
     # Compose/Send new email
-    # Triggers: "send email", "write mail", "draft message", "compose to"
-    compose_keywords = ["send", "write", "draft", "compose", "create"]
+    # Triggers: "send email", "write mail", "draft message", "compose to", "mail to"
+    compose_keywords = ["send", "write", "draft", "compose", "create", "mail"]
     noun_keywords = ["email", "mail", "message", "note"]
     
     if any(k in message_lower for k in compose_keywords) and (
-        any(n in message_lower for n in noun_keywords) or " to " in message_lower
+        any(n in message_lower for n in noun_keywords) or " to " in message_lower or "mail " in message_lower
     ):
         # Exclude "reply" intent
         if "reply" not in message_lower:
@@ -321,6 +321,10 @@ async def handle_send_reply(emails: list, message: str):
         result = await gmail_service.send_email(to, subject, body)
         
         if result.get('success'):
+            # Clear context to prevent resending same email later
+            _compose_context = {}
+            _active_mode = None
+            
             return {"response": f"""✅ **Email Sent Successfully!**
 
 ---

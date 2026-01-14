@@ -10,5 +10,35 @@
     "role": "user",
     "content": "show today mails",
     "timestamp": "2026-01-14T15:20:04.593434"
+  },
+  {
+    "id": "1768384285015",
+    "role": "assistant",
+    "content": "Here are your recent emails:\n\n1. **Mail Delivery Subsystem** - *Delivery Status Notification (Failure)*\n2. **ChatGPT** - *Use ChatGPT to make life easier*\n3. **Kaggle** - *Hackathon Launch: The MedGemma Impact Challenge*\n4. **AI Automation Club** - *Lakshit Ukani posted \"\ud83d\udd25New Video: Understanding WhatsApp Flow Json from Beginners to Advanced\"*\n5. **Abhi Singh** - *test* (\"hello\")\n6. **Abhishek** - *(No Subject)* (\"hello\")\n7. **AI Automation Club** - *Weekly digest for Mon, Jan 5 2026*\n8. **AI Automation Club** - *Lakshit Ukani posted \"\ud83d\udd25New Video: What is WhatsApp Flow? Complete Explanation with Live Examples\"*\n9. **Z.ai API Team** - *Big News: Z.ai is now public! (HKEX: 02513)*\n10. **Kaggle** - *Competition Launch: Stanford RNA 3D Folding Part 2*\n\nWould you like me to draft replies for any of these, or perform any specific actions (like marking as read or archiving)?",
+    "timestamp": "2026-01-14T15:21:25.015299"
+  },
+  {
+    "id": "1768384501306",
+    "role": "user",
+    "content": "mail abhishekrajput987123@gmail.com \nwrite a mail to installl codemurf in vs code ",
+    "timestamp": "2026-01-14T15:25:01.306213"
+  },
+  {
+    "id": "1768384574818",
+    "role": "user",
+    "content": "mail abhishekrajput987123@gmail.com to join a metting at 6pm ",
+    "timestamp": "2026-01-14T15:26:14.818547"
+  },
+  {
+    "id": "1768384605015",
+    "role": "assistant",
+    "content": "Here is the draft for your email:\n\n**To:** abhishekrajput987123@gmail.com\n**Subject:** Meeting at 6 PM\n\nHi Abhishek,\n\nPlease join the meeting scheduled for today at 6 PM.\n\nLet me know if you need the link or any further details.\n\nBest regards,\n[Your Name]",
+    "timestamp": "2026-01-14T15:26:45.015866"
+  },
+  {
+    "id": "1768384618985",
+    "role": "user",
+    "content": "send it ",
+    "timestamp": "2026-01-14T15:26:58.985537"
   }
 ]
