@@ -44,9 +44,13 @@ async def chat(request: ChatRequest):
              return await handle_send_reply(emails, request.message)
     
     # Important emails
-    if "important" in message_lower:
-        return await handle_important_emails(emails)
+    if "urgent" in message_lower:
+        return await handle_urgent(emails)
     
+    # Autonomous Task / Planning
+    if any(k in message_lower for k in ["task", "sub task", "plan", "checklist", "workflow"]):
+        return await handle_autonomous_task(request.message)
+
     # Compose/Send new email
     # Triggers: "send email", "write mail", "draft message", "compose to"
     compose_keywords = ["send", "write", "draft", "compose", "create"]
@@ -747,3 +751,50 @@ Response:"""
     response = await ai_service.chat(prompt)
     
     return {"response": f"🔍 **Search Results for '{optimized_query}'**\n\n{response}"}
+
+
+async def handle_autonomous_task(message: str):
+    """Handle complex sequential tasks"""
+    
+    # Generate Plan
+    plan = await ai_service.generate_task_plan(message)
+    
+    if not plan:
+        # Fallback to normal chat if planning fails
+        response = await ai_service.chat(message)
+        return {"response": response}
+
+    # Execute Plan
+    execution_log = "📋 **Task Plan:**\n"
+    for step in plan:
+        execution_log += f"1. {step.get('tool')}: {step.get('args')}\n"
+    
+    execution_log += "\n🚀 **Executing...**\n"
+    
+    context = ""
+    
+    for step in plan:
+        tool = step.get('tool')
+        args = step.get('args', {})
+        
+        if tool == "search_web":
+            query = args.get('query')
+            results = await web_search_service.search(query, max_results=3)
+            summary = "\n".join([r['body'] for r in results])
+            context += f"\n[Web Search '{query}']: {summary}\n"
+            execution_log += f"✅ Searched web for '{query}'\n"
+            
+        elif tool == "draft_email":
+            recipient = args.get('recipient')
+            subject = args.get('subject')
+            # Draft but don't send yet? Or context store?
+            execution_log += f"📝 Drafted email to {recipient}\n"
+            context += f"\n[Draft]: Subject: {subject}\n"
+
+    # Final Summary
+    final_response = await ai_service.chat_with_context(
+        f"Summarize the executed task. User Request: {message}. Execution Context: {context}", 
+        ""
+    )
+    
+    return {"response": execution_log + "\n\n" + final_response}

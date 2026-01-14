@@ -134,6 +134,48 @@ IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholder
             print(f"New Email Generation Error: {e}")
             return f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
 
+    async def generate_task_plan(self, user_request: str) -> list:
+        """Generate a sequential plan for a complex task"""
+        if not self.api_key:
+            return []
+            
+        system_prompt = """You are an Autonomous Task Planner. Break the user's request into a sequential list of steps.
+Available Tools:
+- search_web(query): Search the internet.
+- search_emails(query): Search the user's inbox.
+- draft_email(recipient, subject, content): Draft a new email.
+- reply_email(email_id, content): Reply to an existing email.
+
+Output specific JSON format ONLY:
+[
+  {"step": 1, "tool": "search_web", "args": {"query": "..."}},
+  {"step": 2, "tool": "draft_email", "args": {"recipient": "...", "subject": "...", "content": "..."}}
+]
+"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_request}
+                        ],
+                        "temperature": 0.2,
+                        "response_format": {"type": "json_object"}
+                    }
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        content = data["choices"][0]["message"]["content"]
+                        import json
+                        return json.loads(content).get("steps", [])
+        except Exception as e:
+            print(f"Planning Error: {e}")
+            return []
+
     async def chat(self, message: str) -> str:
         """General chat with AI for the chat assistant"""
         
