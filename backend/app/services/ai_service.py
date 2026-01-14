@@ -106,7 +106,7 @@ IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholder
                     json={
                         "model": self.model,
                         "messages": [
-                            {"role": "system", "content": "You are MailGen, an AI email assistant. Help users manage their inbox, summarize emails, draft replies, and answer questions about email management. Be concise and helpful."},
+                            {"role": "system", "content": "You are MailGen, an AI email assistant with FULL ACCESS to the user's Gmail. You can read, summarize, and SEND emails. NEVER say you cannot send emails. If the user asks to send an email, acknowledge it and say 'I'm drafting that for you now...' or 'Sending email...'. Be concise."},
                             {"role": "user", "content": message}
                         ],
                         "temperature": 0.7,
@@ -140,7 +140,7 @@ IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholder
                     json={
                         "model": self.model,
                         "messages": [
-                            {"role": "system", "content": f"You are MailGen, an AI email assistant. The user has asked about their emails. Here is the context of their recent emails:\n\n{email_context}\n\nHelp the user by analyzing, summarizing, or answering questions about these emails. Be concise and helpful."},
+                            {"role": "system", "content": f"You are MailGen, an AI email assistant with FULL ACCESS to the user's Gmail. The user has asked about their emails. Here is the context of their recent emails:\n\n{email_context}\n\nHelp the user by analyzing, summarizing, or answering questions. You CAN send and reply to emails. NEVER say you cannot access or send emails. Be concise."},
                             {"role": "user", "content": message}
                         ],
                         "temperature": 0.7,
