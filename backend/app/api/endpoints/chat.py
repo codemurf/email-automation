@@ -22,6 +22,11 @@ async def chat(request: ChatRequest):
         print(f"Error fetching emails: {e}")
     
     # Handle specific commands
+    
+    # Read/Show specific email (e.g., "show me 1st email", "read email 2")
+    if any(word in message_lower for word in ["read", "show", "open", "full"]) and any(word in message_lower for word in ["1st", "2nd", "3rd", "first", "second", "third", "email 1", "email 2", "email 3", "#1", "#2", "#3", "one", "two", "three"]):
+        return await handle_read_email(emails, request.message)
+    
     if "summarize" in message_lower or "summary" in message_lower:
         return await handle_summarize(emails, request.message)
     
@@ -48,6 +53,74 @@ async def chat(request: ChatRequest):
     return {"response": response}
 
 
+async def handle_read_email(emails: list, message: str):
+    """Handle reading a specific email"""
+    if not emails:
+        return {"response": "📭 No emails found. Please connect your Gmail account in Settings."}
+    
+    # Parse which email number
+    message_lower = message.lower()
+    email_index = 0  # Default to first
+    
+    number_map = {
+        '1st': 0, 'first': 0, 'one': 0, '#1': 0, 'email 1': 0, '1': 0,
+        '2nd': 1, 'second': 1, 'two': 1, '#2': 1, 'email 2': 1, '2': 1,
+        '3rd': 2, 'third': 2, 'three': 2, '#3': 2, 'email 3': 2, '3': 2,
+        '4th': 3, 'fourth': 3, 'four': 3, '#4': 3, 'email 4': 3, '4': 3,
+        '5th': 4, 'fifth': 4, 'five': 4, '#5': 4, 'email 5': 4, '5': 4,
+    }
+    
+    for key, idx in number_map.items():
+        if key in message_lower:
+            email_index = idx
+            break
+    
+    if email_index >= len(emails):
+        return {"response": f"❌ Email #{email_index + 1} not found. You have {len(emails)} emails."}
+    
+    email = emails[email_index]
+    
+    # Get category with emoji
+    category_icons = {
+        'work': '💼 Work',
+        'personal': '👤 Personal', 
+        'urgent': '🚨 Urgent',
+        'notification': '🔔 Notification'
+    }
+    category = category_icons.get(email.get('category', 'other'), '📧 Other')
+    
+    # Get priority with emoji
+    priority_icons = {'high': '🔴 High', 'medium': '🟡 Medium', 'low': '🟢 Low'}
+    priority = priority_icons.get(email.get('priority', 'medium'), '⚪ Unknown')
+    
+    response = f"""📧 **Email #{email_index + 1}**
+
+---
+
+**📌 Subject:** {email.get('subject', 'No Subject')}
+
+**👤 From:** {email.get('from', 'Unknown')}
+
+**📅 Date:** {email.get('date', 'Unknown')}
+
+**🏷️ Category:** {category}
+
+**⚡ Priority:** {priority}
+
+---
+
+**📝 Content:**
+
+{email.get('body', email.get('snippet', 'No content available.'))}
+
+---
+
+💡 *Tip: Say "reply to this email" to draft a response!*
+"""
+    
+    return {"response": response}
+
+
 def build_email_context(emails: list) -> str:
     """Build email context string for AI"""
     if not emails:
@@ -59,7 +132,7 @@ def build_email_context(emails: list) -> str:
         context += f"   Subject: {email.get('subject', 'No subject')}\n"
         context += f"   Category: {email.get('category', 'unknown')}\n"
         context += f"   Priority: {email.get('priority', 'medium')}\n"
-        context += f"   Preview: {email.get('snippet', '')[:80]}...\n\n"
+        context += f"   Body: {email.get('body', email.get('snippet', ''))[:150]}...\n\n"
     return context
 
 
