@@ -8,3 +8,5 @@ google-api-python-client==2.118.0
 python-dotenv==1.0.1
 requests==2.31.0
 aiohttp==3.9.3
+sse-starlette==2.0.0
+pydantic==2.5.0
