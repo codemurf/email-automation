@@ -47,8 +47,16 @@ async def chat(request: ChatRequest):
         return await handle_important_emails(emails)
     
     # Compose/Send new email
-    if "send" in message_lower and "email" in message_lower:
-        return await handle_compose_email(request.message)
+    # Triggers: "send email", "write mail", "draft message", "compose to"
+    compose_keywords = ["send", "write", "draft", "compose", "create"]
+    noun_keywords = ["email", "mail", "message", "note"]
+    
+    if any(k in message_lower for k in compose_keywords) and (
+        any(n in message_lower for n in noun_keywords) or " to " in message_lower
+    ):
+        # Exclude "reply" intent
+        if "reply" not in message_lower:
+            return await handle_compose_email(request.message)
 
     if "summarize" in message_lower or "summary" in message_lower:
         return await handle_summarize(emails, request.message)
