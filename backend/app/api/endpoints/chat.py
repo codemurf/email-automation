@@ -58,8 +58,9 @@ async def chat(request: ChatRequest):
         if has_tone or is_confirmation:
              return await handle_send_reply(emails, request.message)
     
-    # Important emails
-    if "urgent" in message_lower:
+    # Important emails (View Only)
+    # Exclude if trying to send/draft/reply
+    if "urgent" in message_lower and not any(k in message_lower for k in ["send", "draft", "write", "reply", "compose"]):
         return await handle_urgent(emails)
     
     # Autonomous Task / Planning
@@ -82,10 +83,7 @@ async def chat(request: ChatRequest):
         if "reply" not in message_lower:
             return await handle_compose_email(request.message)
 
-    if "urgent" in message_lower:
-        return await handle_urgent(emails)
-    
-    elif "statistic" in message_lower or "stats" in message_lower:
+    if "statistic" in message_lower or "stats" in message_lower:
         return await handle_statistics(emails)
     
     elif "work" in message_lower and ("find" in message_lower or "show" in message_lower):
