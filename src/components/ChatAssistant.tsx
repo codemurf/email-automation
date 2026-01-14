@@ -316,6 +316,11 @@ What would you like me to help you with today?`,
   ];
 
   const formatMessageContent = (content: string) => {
+    // Pre-clean: Remove leading pipe (ASCII or Unicode) if it's the very first character
+    if (content.trim().match(/^[|｜│┃]/)) {
+      content = content.replace(/^[\s|｜│┃]+/, "");
+    }
+
     // Check for action states
     if (content.includes("Sending email...")) {
       return (
@@ -324,9 +329,9 @@ What would you like me to help you with today?`,
             <div key={i}>{line}</div>
           ))}
           <div className="action-progress">
+            {/* ... progress ... */}
             <div className="progress-label">
               <span>Sending email...</span>
-              <span>Sending...</span>
             </div>
             <div className="progress-track">
               <div className="progress-fill"></div>
@@ -336,21 +341,19 @@ What would you like me to help you with today?`,
       );
     }
 
-    if (content.includes("Drafting")) {
-      // Allow drafting text to show, but maybe add a small indicator if needed
-    }
+    // ... (rest of action states)
 
     const lines = content.split("\n");
     return lines.map((line, idx) => {
-      // Skip lines that are just a pipe character or empty pipes
-      if (line.trim() === "|" || line.trim() === "") {
+      // Skip lines that are just pipe characters (ASCII/Unicode) or empty
+      if (/^[\s|｜│┃]*$/.test(line)) {
         return line.trim() === "" ? (
           <div key={idx} className="h-2"></div>
         ) : null;
       }
 
-      // Remove leading pipe characters and whitespace
-      const cleanedLine = line.replace(/^\s*\|\s*/, "");
+      // Remove leading pipe characters from any line
+      const cleanedLine = line.replace(/^[\s|｜│┃]+/, "");
 
       // Handle headers (### Header)
       if (cleanedLine.trim().startsWith("###")) {
