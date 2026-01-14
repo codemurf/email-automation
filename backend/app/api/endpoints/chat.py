@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from app.services.ai_service import ai_service
 from app.services.gmail_service import gmail_service
+from app.services.web_search_service import web_search_service
 
 router = APIRouter()
 
@@ -70,6 +71,10 @@ async def chat(request: ChatRequest):
     elif "work" in message_lower and ("find" in message_lower or "show" in message_lower):
         return await handle_work_emails(emails)
     
+    # Web search / Jobs
+    if "job" in message_lower or "web" in message_lower or "google" in message_lower or "internet" in message_lower:
+         return await handle_web_search(request.message)
+
     elif "find" in message_lower or "search" in message_lower:
         return await handle_search(emails, request.message)
     
@@ -687,3 +692,44 @@ async def handle_search(emails: list, query: str):
         response += f"   {email.get('snippet', '')[:80]}...\n\n"
     
     return {"response": response}
+
+
+async def handle_web_search(message: str):
+    """Handle web search requests"""
+    
+    # Clean query
+    query = message.lower()
+    for remove in ["can you", "please", "find", "search for", "search", "make a list of", "compile", "get", "me", "look for", "the web", "online"]:
+         query = query.replace(remove, "")
+    
+    query = query.strip()
+    
+    # Perform search
+    results = await web_search_service.search(query, max_results=8)
+    
+    if not results:
+        return {"response": f"🔍 I searched the web for '{query}' but couldn't find any results."}
+
+    # Format results
+    search_context = ""
+    for i, r in enumerate(results, 1):
+        search_context += f"{i}. {r.get('title', 'No Title')}\n   URL: {r.get('href', 'No URL')}\n   Summary: {r.get('body', '')}\n\n"
+    
+    # Ask AI to process
+    prompt = f"""You are a helpful AI assistant. The user asked: "{message}"
+
+Here are the search results found on the web:
+
+{search_context}
+
+Based on these results, please answer the user's request.
+- If they asked for a list, provide a clean markdown list.
+- If they asked for emails, extract any emails found or point to where they might be.
+- If they asked for job listings, summarize the relevant positions and include the URLs.
+- Do not make up information not present in the results.
+
+Response:"""
+
+    response = await ai_service.chat(prompt)
+    
+    return {"response": f"🔍 **Web Search Results for '{query}'**\n\n{response}"}
