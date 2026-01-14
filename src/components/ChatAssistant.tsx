@@ -342,9 +342,19 @@ What would you like me to help you with today?`,
 
     const lines = content.split("\n");
     return lines.map((line, idx) => {
+      // Skip lines that are just a pipe character or empty pipes
+      if (line.trim() === "|" || line.trim() === "") {
+        return line.trim() === "" ? (
+          <div key={idx} className="h-2"></div>
+        ) : null;
+      }
+
+      // Remove leading pipe characters and whitespace
+      const cleanedLine = line.replace(/^\s*\|\s*/, "");
+
       // Handle headers (### Header)
-      if (line.trim().startsWith("###")) {
-        const text = line.replace(/^###\s*/, "");
+      if (cleanedLine.trim().startsWith("###")) {
+        const text = cleanedLine.replace(/^###\s*/, "");
         return (
           <div key={idx} className="font-bold text-lg mt-3 mb-2">
             {text}
@@ -353,8 +363,8 @@ What would you like me to help you with today?`,
       }
 
       // Handle subheaders (## or bold headers)
-      if (line.trim().startsWith("##")) {
-        const text = line.replace(/^##\s*/, "");
+      if (cleanedLine.trim().startsWith("##")) {
+        const text = cleanedLine.replace(/^##\s*/, "");
         return (
           <div key={idx} className="font-bold text-base mt-2 mb-1">
             {text}
@@ -364,12 +374,12 @@ What would you like me to help you with today?`,
 
       // Handle bullet points with emojis and bold text
       if (
-        line.includes("**") ||
-        line.trim().startsWith("•") ||
-        line.trim().startsWith("-") ||
-        line.trim().startsWith("*")
+        cleanedLine.includes("**") ||
+        cleanedLine.trim().startsWith("•") ||
+        cleanedLine.trim().startsWith("-") ||
+        cleanedLine.trim().startsWith("*")
       ) {
-        let processedLine = line;
+        let processedLine = cleanedLine;
 
         // Replace markdown bold with spans
         const parts = processedLine.split(/(\*\*.*?\*\*)/g);
@@ -377,9 +387,9 @@ What would you like me to help you with today?`,
           <div
             key={idx}
             className={
-              line.trim().startsWith("•") ||
-              line.trim().startsWith("-") ||
-              line.trim().startsWith("*")
+              cleanedLine.trim().startsWith("•") ||
+              cleanedLine.trim().startsWith("-") ||
+              cleanedLine.trim().startsWith("*")
                 ? "ml-4 my-1"
                 : "my-1"
             }
@@ -399,15 +409,10 @@ What would you like me to help you with today?`,
         );
       }
 
-      // Handle empty lines
-      if (line.trim() === "") {
-        return <div key={idx} className="h-2"></div>;
-      }
-
       // Regular text
       return (
         <div key={idx} className="my-1">
-          {line}
+          {cleanedLine}
         </div>
       );
     });
