@@ -89,6 +89,51 @@ IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholder
             print(f"AI Generation Error: {e}")
             return f"Hi {sender_name},\n\nThank you for your email regarding '{email_subject}'. I have received it and will respond shortly.\n\nBest regards,\nAbhishek"
 
+    async def generate_new_email(self, recipient: str, subject: str, context: str, tone: str = "professional") -> str:
+        """Generate a new email draft (not a reply)"""
+        
+        # Extract name if possible
+        import re
+        recipient_name = "there"
+        
+        # Try to extract name from format "Name <email@example.com>" or just email
+        name_match = re.match(r'^([^<]+)', recipient)
+        if name_match and '@' not in name_match.group(1):
+             recipient_name = name_match.group(1).strip().split()[0].capitalize()
+        elif "@" in recipient:
+             email_match = re.search(r'([a-zA-Z0-9._%+-]+)@', recipient)
+             if email_match:
+                recipient_name = email_match.group(1).split('.')[0].capitalize()
+        
+        if not self.api_key:
+             return f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "user", "content": f"Write a NEW {tone} email to {recipient_name} about '{subject}'. Context: {context}. Start with 'Hi {recipient_name},'. Sign as Abhishek. OUTPUT ONLY THE EMAIL BODY. NO SUBJECT LINE."}
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 1000
+                    }
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["choices"][0]["message"]["content"].strip()
+                    else:
+                        return f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
+        except Exception as e:
+            print(f"New Email Generation Error: {e}")
+            return f"Hi {recipient_name},\n\nI am writing to you regarding {subject}.\n\n{context}\n\nBest regards,\nAbhishek"
+
     async def chat(self, message: str) -> str:
         """General chat with AI for the chat assistant"""
         

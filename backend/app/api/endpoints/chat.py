@@ -275,10 +275,10 @@ async def handle_send_reply(emails: list, message: str):
         # If tone changed in this step, regenerate
         # Or if body is missing
         if not body or (any(t in message_lower for t in tone_icons.keys()) and tone != _compose_context.get("tone")):
-             body = await ai_service.generate_email_reply(
-                subject, 
-                f"Write a new email to {to} about {subject}. Tone: {tone}.", 
+             body = await ai_service.generate_new_email(
                 to, 
+                subject,
+                f"Write a new email to {to} about {subject}.", 
                 tone
              )
         
@@ -437,10 +437,10 @@ async def handle_compose_email(message: str):
     recipient = recipient.strip(".,?!")
     
     # Generate draft with AI
-    ai_draft = await ai_service.generate_email_reply(
-        subject,
-        f"Write a new email to {recipient} with subject '{subject}'. Tone: Professional.",
+    ai_draft = await ai_service.generate_new_email(
         recipient,
+        subject,
+        f"Write a new email to {recipient} with subject '{subject}'.",
         "professional"
     )
 
