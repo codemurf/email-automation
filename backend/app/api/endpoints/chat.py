@@ -381,43 +381,65 @@ async def handle_compose_email(message: str):
     global _compose_context, _active_mode
     _active_mode = "compose"
     
-    # Extract recipient and subject
-    # Pattern: "send email to [who] about [what]"
-    words = message.split()
+    # Extract recipient and subject using regex for better precision
+    import re
+    
+    message_lower = message.lower()
     recipient = None
     subject = "Status Update" # Default
     
-    if "to" in words:
+    # 1. Try to find an email address directly
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', message)
+    if email_match:
+        recipient = email_match.group(0)
+        
+        # subject is likely what comes after the email
+        # find index of email end
+        email_end = email_match.end()
+        remaining = message[email_end:].strip()
+        
+        # Remove common separators like "about", "for", "regarding"
+        for sep in ["about ", "for ", "regarding ", "subject "]:
+            if remaining.lower().startswith(sep):
+                remaining = remaining[len(sep):]
+                break
+        
+        if remaining:
+            subject = remaining.capitalize()
+            
+    # 2. If no email, look for "to [Name]" pattern
+    elif " to " in message_lower:
         try:
-            start_idx = words.index("to") + 1
-            # Find where 'about' starts, or end of string
-            end_idx = len(words)
-            if "about" in words:
-                end_idx = words.index("about")
+            parts = message_lower.split(" to ", 1)[1]
             
-            recipient_words = words[start_idx:end_idx]
-            recipient = " ".join(recipient_words)
+            # Split by common prepositions to separate recipient from subject
+            separators = [" about ", " for ", " regarding ", " with ", " subject "]
+            split_idx = len(parts)
+            found_sep = None
             
-            # Remove punctuation
-            recipient = recipient.strip(".,?!")
+            for sep in separators:
+                idx = parts.find(sep)
+                if idx != -1 and idx < split_idx:
+                    split_idx = idx
+                    found_sep = sep
+            
+            recipient = parts[:split_idx].strip().title() # Capitalize name
+            
+            if found_sep:
+                subject = parts[split_idx + len(found_sep):].strip().capitalize()
         except:
-            pass
-            
-    if "about" in words:
-        try:
-            start_idx = words.index("about") + 1
-            subject_words = words[start_idx:]
-            subject = " ".join(subject_words).capitalize()
-        except:
-            pass
+             pass
 
     if not recipient:
-        return {"response": "✉️ To whom should I send this email? Please say **'Send email to [Name/Email]'**."}
+        return {"response": "✉️ To whom should I send this email? Please include an email address or say **'Send email to [Name]'**."}
 
+    # Clean potential extra text from recipient
+    recipient = recipient.strip(".,?!")
+    
     # Generate draft with AI
     ai_draft = await ai_service.generate_email_reply(
         subject,
-        f"Write a new email to {recipient} about {subject}. Tone: Professional.",
+        f"Write a new email to {recipient} with subject '{subject}'. Tone: Professional.",
         recipient,
         "professional"
     )
