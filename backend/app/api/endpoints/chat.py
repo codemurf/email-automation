@@ -71,8 +71,11 @@ async def chat(request: ChatRequest):
     elif "work" in message_lower and ("find" in message_lower or "show" in message_lower):
         return await handle_work_emails(emails)
     
-    # Web search / Jobs
-    if "job" in message_lower or "web" in message_lower or "google" in message_lower or "internet" in message_lower:
+    # Web search / Jobs / Platforms
+    # Triggers: "job", "web", "google", "linkedin", "naukri", etc.
+    web_keywords = ["job", "web", "google", "internet", "linkedin", "naukri", "indeed", "glassdoor", "hiring", "vacancy", "platform", "online", "jon"]
+    
+    if any(k in message_lower for k in web_keywords):
          return await handle_web_search(request.message)
 
     elif "find" in message_lower or "search" in message_lower:
@@ -714,6 +717,11 @@ async def handle_web_search(message: str):
     
     # Remove extra spaces
     query = " ".join(cleaned_query.split())
+    
+    # Fix common typos
+    typos = {"jon": "job", "notkri": "naukri", "linked": "linkedin"}
+    for typo, fix in typos.items():
+        query = query.replace(typo, fix)
     
     # Optimizing query for job search if needed
     if "email" in message.lower() and "job" in message.lower():

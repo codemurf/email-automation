@@ -12,6 +12,8 @@ import {
   Lightbulb,
   User,
   Sparkles,
+  ArrowUp,
+  Square,
 } from "lucide-react";
 
 interface Message {
@@ -48,6 +50,24 @@ What would you like me to help you with today?`,
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "🛑 *Stopped by user.*",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -55,7 +75,7 @@ What would you like me to help you with today?`,
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Load saved webhook URL from localStorage
   useEffect(() => {
@@ -98,7 +118,11 @@ What would you like me to help you with today?`,
   }, [input]);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if (isLoading) {
+      handleStop();
+      return;
+    }
+    if (!input.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -111,12 +135,16 @@ What would you like me to help you with today?`,
     setInput("");
     setIsLoading(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
         body: JSON.stringify({
           message: input,
           conversation_history: messages.map((m) => ({
@@ -138,7 +166,11 @@ What would you like me to help you with today?`,
       } else {
         throw new Error("Failed to get response");
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        console.log("Request aborted");
+        return;
+      }
       console.error("Chat error:", error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -149,6 +181,7 @@ What would you like me to help you with today?`,
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -569,24 +602,17 @@ What would you like me to help you with today?`,
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() && !isLoading}
               className={`send-btn ${
-                input.trim() && !isLoading ? "active" : "disabled"
+                input.trim() || isLoading ? "active" : "disabled"
               } ${theme}`}
+              title={isLoading ? "Stop generating" : "Send message"}
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
+              {isLoading ? (
+                <Square className="w-4 h-4 fill-current" />
+              ) : (
+                <ArrowUp className="w-5 h-5" />
+              )}
             </button>
           </div>
           <p className={`input-hint ${theme}`}>
