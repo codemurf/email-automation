@@ -700,61 +700,50 @@ async def handle_search(emails: list, query: str):
 async def handle_web_search(message: str):
     """Handle web search requests"""
     
-    # Clean query safely
-    # Remove common conversational phrases but preserve search terms
-    import re
+    # 1. Ask AI to generate an optimized search query
+    query_prompt = f"""Extract the core search topic from this user request for a search engine. 
+    Remove commands like "make a list", "find", "search". 
+    If they are looking for jobs/emails, add "hiring contact email".
+    Output ONLY the search query keywords.
     
-    # Phrases to remove (case insensitive)
-    remove_phrases = [
-        r"\bcan you\b", r"\bplease\b", r"\bfind\b", r"\bsearch for\b", 
-        r"\bsearch\b", r"\bmake a list of\b", r"\bcompile\b", r"\bget\b", 
-        r"\blook for\b", r"\bthe web\b", r"\bonline\b", r"\bme\b"
-    ]
+    User Request: "{message}"
     
-    cleaned_query = message.lower()
-    for pattern in remove_phrases:
-        cleaned_query = re.sub(pattern, "", cleaned_query)
+    Search Query:"""
     
-    # Remove extra spaces
-    query = " ".join(cleaned_query.split())
+    try:
+        optimized_query = await ai_service.chat(query_prompt)
+        optimized_query = optimized_query.strip().strip('"')
+    except:
+        optimized_query = message # Fallback
     
-    # Fix common typos
-    typos = {"jon": "job", "notkri": "naukri", "linked": "linkedin"}
-    for typo, fix in typos.items():
-        query = query.replace(typo, fix)
+    print(f"Original: {message} -> Optimized: {optimized_query}")
     
-    # Optimizing query for job search if needed
-    if "email" in message.lower() and "job" in message.lower():
-         # If user wants emails for jobs, ensure we look for contact info
-         if "email" not in query:
-             query += " contact email"
-    
-    # Perform search
-    results = await web_search_service.search(query, max_results=8)
+    # 2. Perform search with optimized query
+    results = await web_search_service.search(optimized_query, max_results=8)
     
     if not results:
-        return {"response": f"🔍 I searched the web for '{query}' but couldn't find any results."}
+        return {"response": f"🔍 I searched for '{optimized_query}' but couldn't find any results."}
 
-    # Format results
+    # 3. Format results
     search_context = ""
     for i, r in enumerate(results, 1):
         search_context += f"{i}. {r.get('title', 'No Title')}\n   URL: {r.get('href', 'No URL')}\n   Summary: {r.get('body', '')}\n\n"
     
-    # Ask AI to process
+    # 4. Ask AI to process
     prompt = f"""You are a helpful AI assistant. The user asked: "{message}"
 
-Here are the search results found on the web:
+Here are the search results found for '{optimized_query}':
 
 {search_context}
 
 Based on these results, please answer the user's request.
 - If they asked for a list, provide a clean markdown list.
-- If they asked for emails, extract any emails found or point to where they might be.
-- If they asked for job listings, summarize the relevant positions and include the URLs.
-- Do not make up information not present in the results.
+- If they asked for emails, extract any emails found.
+- If they asked for job listings, summarize the relevant positions (Title, Company, Location) and include the URLs.
+- If no direct jobs are found, give the user the direct search links to click.
 
 Response:"""
 
     response = await ai_service.chat(prompt)
     
-    return {"response": f"🔍 **Web Search Results for '{query}'**\n\n{response}"}
+    return {"response": f"🔍 **Search Results for '{optimized_query}'**\n\n{response}"}
