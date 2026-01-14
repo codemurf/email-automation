@@ -14,7 +14,7 @@ load_dotenv()
 
 class GmailService:
     def __init__(self):
-        self.mock_mode = os.getenv("MOCK_GMAIL", "true").lower() == "true"
+        self.mock_mode = os.getenv("MOCK_GMAIL", "false").lower() == "true"
         self.client_id = os.getenv("GMAIL_CLIENT_ID")
         self.client_secret = os.getenv("GMAIL_CLIENT_SECRET")
         self.redirect_uri = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:9000/api/v1/auth/gmail/callback")
@@ -181,8 +181,11 @@ class GmailService:
 
     async def fetch_emails(self, max_results: int = 20) -> List[Dict]:
         """Fetch emails from Gmail"""
-        if self.mock_mode or not self.is_connected():
+        if self.mock_mode:
             return self._mock_emails
+        
+        if not self.is_connected():
+            return []
         
         try:
             results = self.service.users().messages().list(
@@ -259,7 +262,7 @@ class GmailService:
         """Send a reply to an email"""
         print(f"Attempting to send reply to email {email_id}")
         
-        if self.mock_mode or not self.is_connected():
+        if self.mock_mode:
             import asyncio
             await asyncio.sleep(1)
             print("Mock mode: simulating reply sent")
@@ -268,6 +271,9 @@ class GmailService:
                 "id": f"reply_{email_id}",
                 "message": "Reply sent (mock mode)"
             }
+        
+        if not self.is_connected():
+            return {"success": False, "error": "Gmail is not connected. Please connect in Settings."}
         
         try:
             # Get original message
@@ -315,7 +321,7 @@ class GmailService:
         """Send a new email"""
         print(f"Attempting to send email to {to}")
         
-        if self.mock_mode or not self.is_connected():
+        if self.mock_mode:
             import asyncio
             from datetime import datetime
             await asyncio.sleep(1)
@@ -325,6 +331,9 @@ class GmailService:
                 "id": f"new_email_{int(datetime.now().timestamp())}",
                 "message": "Email sent (mock mode)"
             }
+
+        if not self.is_connected():
+            return {"success": False, "error": "Gmail is not connected. Please connect in Settings."}
             
         try:
             # Get user's email address

@@ -60,7 +60,7 @@ async def chat(request: ChatRequest):
     
     # Important emails (View Only)
     # Exclude if trying to send/draft/reply
-    if "urgent" in message_lower and not any(k in message_lower for k in ["send", "draft", "write", "reply", "compose"]):
+    if any(k in message_lower for k in ["urgent", "important", "priority", "critical"]) and not any(k in message_lower for k in ["send", "draft", "write", "reply", "compose"]):
         return await handle_urgent(emails)
     
     # Autonomous Task / Planning
@@ -73,7 +73,7 @@ async def chat(request: ChatRequest):
 
     # Compose/Send new email
     # Triggers: "send email", "write mail", "draft message", "compose to", "mail to"
-    compose_keywords = ["send", "write", "draft", "compose", "create", "mail"]
+    compose_keywords = ["send", "write", "draft", "compose", "create"]
     noun_keywords = ["email", "mail", "message", "note"]
     
     if any(k in message_lower for k in compose_keywords) and (
