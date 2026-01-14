@@ -256,6 +256,30 @@ What would you like me to help you with today?`,
   ];
 
   const formatMessageContent = (content: string) => {
+    // Check for action states
+    if (content.includes("Sending email...")) {
+      return (
+        <div className="flex flex-col gap-2">
+          {content.split("\n").map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+          <div className="action-progress">
+            <div className="progress-label">
+              <span>Sending email...</span>
+              <span>Sending...</span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (content.includes("Drafting")) {
+      // Allow drafting text to show, but maybe add a small indicator if needed
+    }
+
     const lines = content.split("\n");
     return lines.map((line, idx) => {
       // Handle headers (### Header)

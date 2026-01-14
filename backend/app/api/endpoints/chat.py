@@ -32,9 +32,15 @@ async def chat(request: ChatRequest):
     if any(trigger in message_lower for trigger in reply_triggers):
         return await handle_reply_draft(emails, request.message)
     
-    # Send with specific tone
-    if any(tone in message_lower for tone in ["professional", "friendly", "casual", "formal", "urgent"]) and ("send" in message_lower or "continue" in message_lower or "use" in message_lower):
-        return await handle_send_reply(emails, request.message)
+    # Send confirmation / Send with specific tone
+    send_triggers = ["send", "continue", "use", "confirm", "yes"]
+    if any(t in message_lower for t in send_triggers):
+        # Check if it's a specific tone request OR a general confirmation
+        has_tone = any(tone in message_lower for tone in ["professional", "friendly", "casual", "formal", "urgent"])
+        is_confirmation = any(c in message_lower for c in ["it", "now", "email", "reply", "draft", "yes", "good"])
+        
+        if has_tone or is_confirmation:
+             return await handle_send_reply(emails, request.message)
     
     # Important emails
     if "important" in message_lower:
