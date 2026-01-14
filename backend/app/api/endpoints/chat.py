@@ -40,6 +40,10 @@ async def chat(request: ChatRequest):
     if "important" in message_lower:
         return await handle_important_emails(emails)
     
+    # Compose/Send new email
+    if "send" in message_lower and "email" in message_lower:
+        return await handle_compose_email(request.message)
+
     if "summarize" in message_lower or "summary" in message_lower:
         return await handle_summarize(emails, request.message)
     
@@ -301,6 +305,55 @@ Since Gmail is not fully connected, here's the reply that would be sent:
 💡 *Connect Gmail in Settings to send emails directly!*
 """
     
+    return {"response": response}
+
+
+async def handle_compose_email(message: str):
+    """Handle composing and sending a new email"""
+    
+    # Simple extraction (naive)
+    stop_words = ['send', 'email', 'to', 'mail', 'write', 'draft', 'a', 'an']
+    words = message.split()
+    recipient = "Unknown Recipient"
+    
+    if "to" in words:
+        try:
+            recipient_idx = words.index("to") + 1
+            recipient = words[recipient_idx]
+            # Try to grab full name if available
+            if recipient_idx + 1 < len(words):
+                recipient += " " + words[recipient_idx + 1]
+        except:
+            pass
+            
+    response = f"""✉️ **Drafting New Email**
+
+---
+
+**📌 To:** {recipient}
+**📝 Subject:** [Auto-Generated Subject]
+
+---
+
+**Draft Content:**
+
+*Hi {recipient},*
+
+*I am writing to you regarding...*
+
+[AI is ready to draft this email for you.]
+
+---
+
+**🚀 Action Required:**
+
+To send this email, please provide:
+1. **Topic/Subject**
+2. **Main Message**
+3. **Tone** (Professional, Friendly, Urgent)
+
+Example: *"Send a friendly email to {recipient} about the upcoming meeting on Friday."*
+"""
     return {"response": response}
 
 
