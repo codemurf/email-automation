@@ -90,7 +90,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeToggle }) => {
       </div>
 
       {/* Appearance Section */}
-      <div className="settings-section">
+      {/* <div className="settings-section">
         <div className="section-header">
           <h3>Appearance</h3>
         </div>
@@ -107,7 +107,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeToggle }) => {
             </button>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Gmail Connection Section */}
       <div className="settings-section gmail-section">
