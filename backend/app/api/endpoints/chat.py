@@ -697,12 +697,29 @@ async def handle_search(emails: list, query: str):
 async def handle_web_search(message: str):
     """Handle web search requests"""
     
-    # Clean query
-    query = message.lower()
-    for remove in ["can you", "please", "find", "search for", "search", "make a list of", "compile", "get", "me", "look for", "the web", "online"]:
-         query = query.replace(remove, "")
+    # Clean query safely
+    # Remove common conversational phrases but preserve search terms
+    import re
     
-    query = query.strip()
+    # Phrases to remove (case insensitive)
+    remove_phrases = [
+        r"\bcan you\b", r"\bplease\b", r"\bfind\b", r"\bsearch for\b", 
+        r"\bsearch\b", r"\bmake a list of\b", r"\bcompile\b", r"\bget\b", 
+        r"\blook for\b", r"\bthe web\b", r"\bonline\b", r"\bme\b"
+    ]
+    
+    cleaned_query = message.lower()
+    for pattern in remove_phrases:
+        cleaned_query = re.sub(pattern, "", cleaned_query)
+    
+    # Remove extra spaces
+    query = " ".join(cleaned_query.split())
+    
+    # Optimizing query for job search if needed
+    if "email" in message.lower() and "job" in message.lower():
+         # If user wants emails for jobs, ensure we look for contact info
+         if "email" not in query:
+             query += " contact email"
     
     # Perform search
     results = await web_search_service.search(query, max_results=8)
