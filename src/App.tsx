@@ -3,13 +3,13 @@ import "./App.css";
 import {
   LayoutDashboard,
   MessageSquare,
-  CheckSquare,
+  Megaphone,
   Settings as SettingsIcon,
 } from "lucide-react";
 import AgentDashboard from "./components/AgentDashboard";
 import LogViewer from "./components/LogViewer";
 import EmailInbox from "./components/EmailInbox";
-import TodoList from "./components/TodoList";
+import CampaignManager from "./components/CampaignManager";
 import EmailKanban from "./components/EmailKanban";
 import AgentWorkflow from "./components/AgentWorkflow";
 import Settings from "./components/Settings";
@@ -152,6 +152,7 @@ function App() {
           priority: email.priority || "medium",
           isUnread: email.unread !== undefined ? email.unread : true,
           body: email.body || email.snippet || "",
+          columnId: email.columnId || "inbox", // Preserve columnId from backend (sent emails)
         }));
 
         setEmails(parsedEmails);
@@ -174,7 +175,7 @@ function App() {
       } else {
         const mockEmails: Email[] = [
           {
-            id: "mock-1",
+            id: "email_1",
             subject: "URGENT: Quarterly Report Due Tomorrow",
             from: "boss@company.com",
             date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
@@ -185,7 +186,7 @@ function App() {
             body: "Hi Team, Just a friendly reminder that quarterly reports are due tomorrow by end of day...",
           },
           {
-            id: "mock-2",
+            id: "email_2",
             subject: "Team Meeting Rescheduled to Wednesday",
             from: "team-lead@company.com",
             date: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
@@ -215,7 +216,7 @@ function App() {
     } catch (error) {
       const mockEmails: Email[] = [
         {
-          id: "fallback-1",
+          id: "email_3",
           subject: "Welcome to MailGen",
           from: "system@mailgen.ai",
           date: new Date().toISOString(),
@@ -235,7 +236,7 @@ function App() {
   const handleModalSendReply = async (
     emailId: string,
     content: string,
-    tone: string
+    tone: string,
   ) => {
     setIsSendingReply(true);
     try {
@@ -246,7 +247,13 @@ function App() {
       });
 
       if (!response.ok) throw new Error("Failed to send reply");
-      fetchEmailsAndTasks();
+
+      // Update local state to mark email as sent (smooth transition, no reload)
+      setEmails((prev) =>
+        prev.map((e) =>
+          e.id === emailId ? { ...e, columnId: "sent" as const } : e,
+        ),
+      );
     } catch (error) {
       console.error("Error sending reply:", error);
     } finally {
@@ -256,14 +263,39 @@ function App() {
 
   const handleReplyEmail = async (emailId: string): Promise<void> => {
     try {
+      // Find the email object
+      const email = emails.find((e) => e.id === emailId);
+      if (!email) return;
+
+      // 1. Generate AI Reply
+      const aiResponse = await fetch(`${API_BASE_URL}/agents/reply/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email_subject: email.subject,
+          email_body: email.body || email.snippet,
+          sender: email.from,
+        }),
+      });
+
+      const { reply } = await aiResponse.json();
+
+      // 2. Send the generated reply with email details for database storage
       const response = await fetch(`${API_BASE_URL}/integrations/gmail/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_id: emailId }),
+        body: JSON.stringify({
+          email_id: emailId,
+          content: reply,
+          original_from: email.from,
+          original_subject: email.subject,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to send reply");
-      fetchEmailsAndTasks();
+
+      // Local state is already updated by EmailKanban's moveEmail function
+      // Backend persists the sent status to database, so no reload needed
     } catch (error) {
       console.error("Error replying to email:", error);
     }
@@ -271,12 +303,12 @@ function App() {
 
   const handleEmailMove = (
     emailId: string,
-    toColumnId: "inbox" | "to-reply" | "replying" | "sent"
+    toColumnId: "inbox" | "to-reply" | "replying" | "sent",
   ): void => {
     setEmails((prev) =>
       prev.map((email) =>
-        email.id === emailId ? { ...email, columnId: toColumnId } : email
-      )
+        email.id === emailId ? { ...email, columnId: toColumnId } : email,
+      ),
     );
   };
 
@@ -314,8 +346,8 @@ function App() {
             className={`menu-item ${activeTab === "tasks" ? "active" : ""}`}
             onClick={() => setActiveTab("tasks")}
           >
-            <CheckSquare size={18} />
-            <span className="menu-label">Task Manager</span>
+            <Megaphone size={18} />
+            <span className="menu-label">Campaigns</span>
           </button>
         </nav>
 
@@ -418,7 +450,7 @@ function App() {
             </>
           )}
           {activeTab === "inbox" && <EmailInbox emails={emails} />}
-          {activeTab === "tasks" && <TodoList tasks={tasks} />}
+          {activeTab === "tasks" && <CampaignManager />}
         </div>
 
         {selectedEmail && (

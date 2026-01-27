@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -36,6 +36,9 @@ const EmailCard: React.FC<EmailCardProps> = ({
   isProcessing,
   onClick,
 }) => {
+  const isDragRef = useRef(false);
+  const mouseDownPosRef = useRef({ x: 0, y: 0 });
+
   const {
     attributes,
     listeners,
@@ -93,6 +96,30 @@ const EmailCard: React.FC<EmailCardProps> = ({
     return date.toLocaleDateString();
   };
 
+  // Handle mouse down to track starting position
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+    isDragRef.current = false;
+  };
+
+  // Handle mouse move to detect if this is a drag
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
+    // If moved more than 5px, it's a drag
+    if (dx > 5 || dy > 5) {
+      isDragRef.current = true;
+    }
+  };
+
+  // Handle click - only open modal if not dragging
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open modal if this was a drag operation
+    if (!isDragRef.current && onClick && !isProcessing) {
+      onClick(email);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -104,6 +131,9 @@ const EmailCard: React.FC<EmailCardProps> = ({
       }`}
       {...attributes}
       {...listeners}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onClick={handleCardClick}
     >
       {isProcessing && (
         <div className="processing-overlay">
@@ -124,16 +154,7 @@ const EmailCard: React.FC<EmailCardProps> = ({
       </div>
 
       <div className="card-content">
-        <h4
-          className="card-subject"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick && onClick(email);
-          }}
-          style={{ cursor: "pointer" }}
-        >
-          {email.subject}
-        </h4>
+        <h4 className="card-subject">{email.subject}</h4>
         <p className="card-from">From: {email.from}</p>
         <p className="card-snippet">{email.snippet}</p>
       </div>

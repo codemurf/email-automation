@@ -33,8 +33,46 @@ class AIService:
                 # Capitalize first letter of email prefix
                 sender_name = email_prefix.split('.')[0].capitalize()
         
+        # Tone-specific fallback templates
+        def get_fallback_response(tone: str) -> str:
+            templates = {
+                "professional": f"""Hi {sender_name},
+
+Thank you for your email regarding "{email_subject}". I have reviewed your message and appreciate you reaching out.
+
+I will look into this matter and get back to you with a detailed response at my earliest convenience.
+
+Best regards,
+Abhishek""",
+                "friendly": f"""Hey {sender_name}! 👋
+
+Thanks so much for your email about "{email_subject}"! Really appreciate you getting in touch.
+
+I'm on it and will circle back to you soon with more details. Looking forward to connecting further!
+
+Cheers,
+Abhishek""",
+                "urgent": f"""Hi {sender_name},
+
+I've received your urgent email regarding "{email_subject}" and understand the time-sensitive nature of this matter.
+
+I am prioritizing this immediately and will respond with the necessary information/action within the next few hours.
+
+Best regards,
+Abhishek""",
+                "casual": f"""Hey {sender_name},
+
+Got your email about "{email_subject}" - thanks for reaching out!
+
+I'll take a look and get back to you soon. No worries!
+
+Talk soon,
+Abhishek"""
+            }
+            return templates.get(tone, templates["professional"])
+        
         if not self.api_key:
-            return f"Hi {sender_name},\n\nThank you for your email regarding '{email_subject}'. I have received it and will respond shortly.\n\nBest regards,\nAbhishek"
+            return get_fallback_response(tone)
         
         prompt = f"""You are an AI email assistant writing emails on behalf of Abhishek. Generate a {tone}, helpful reply to the following email.
 
@@ -81,13 +119,13 @@ IMPORTANT: Output ONLY the email body. Do not include subject lines, placeholder
                             return content.strip()
                         else:
                             print("WARNING: AI returned empty content, using fallback")
-                            return f"Hi {sender_name},\n\nThank you for your email regarding '{email_subject}'. I have received it and will respond shortly.\n\nBest regards,\nAbhishek"
+                            return get_fallback_response(tone)
                     else:
                         print(f"AI API Error: {response.status} - {response_text[:200]}")
-                        return f"Hi {sender_name},\n\nThank you for your email regarding '{email_subject}'. I have received it and will respond shortly.\n\nBest regards,\nAbhishek"
+                        return get_fallback_response(tone)
         except Exception as e:
             print(f"AI Generation Error: {e}")
-            return f"Hi {sender_name},\n\nThank you for your email regarding '{email_subject}'. I have received it and will respond shortly.\n\nBest regards,\nAbhishek"
+            return get_fallback_response(tone)
 
     async def generate_new_email(self, recipient: str, subject: str, context: str, tone: str = "professional") -> dict:
         """Generate a new email draft (Subject + Body)"""

@@ -1,23 +1,108 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
+from datetime import datetime
+import uuid
 from app.services.ai_service import ai_service
 from app.services.gmail_service import gmail_service
 from app.services.web_search_service import web_search_service
 from app.services.history_service import history_service
+from app.database import get_db
+from app.models import ChatSession, ChatMessage
 
 router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str = None
+
+class SessionRequest(BaseModel):
+    title: str = "New Chat"
+
+# ============================================
+# Session Management Endpoints
+# ============================================
+
+@router.get("/sessions")
+async def get_sessions(db: AsyncSession = Depends(get_db)):
+    """Get all chat sessions"""
+    result = await db.execute(
+        select(ChatSession).order_by(ChatSession.updated_at.desc())
+    )
+    sessions = result.scalars().all()
+    return {"sessions": [s.to_dict() for s in sessions]}
+
+@router.post("/sessions")
+async def create_session(request: SessionRequest = None, db: AsyncSession = Depends(get_db)):
+    """Create a new chat session"""
+    session_id = str(uuid.uuid4())[:8]
+    title = request.title if request else "New Chat"
+    
+    session = ChatSession(
+        id=session_id,
+        title=title,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
+    )
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    
+    return {"session": session.to_dict()}
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete a chat session and its messages"""
+    # Delete all messages in this session
+    await db.execute(
+        delete(ChatMessage).where(ChatMessage.session_id == session_id)
+    )
+    # Delete the session
+    await db.execute(
+        delete(ChatSession).where(ChatSession.id == session_id)
+    )
+    await db.commit()
+    return {"status": "success", "message": f"Session {session_id} deleted"}
+
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(session_id: str, db: AsyncSession = Depends(get_db)):
+    """Get messages for a specific session"""
+    result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.timestamp)
+    )
+    messages = result.scalars().all()
+    return {"messages": [m.to_dict() for m in messages]}
+
+@router.patch("/sessions/{session_id}")
+async def update_session_title(session_id: str, request: SessionRequest, db: AsyncSession = Depends(get_db)):
+    """Update session title"""
+    result = await db.execute(
+        select(ChatSession).where(ChatSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session.title = request.title
+    session.updated_at = datetime.utcnow()
+    await db.commit()
+    return {"session": session.to_dict()}
+
+# ============================================
+# Legacy History Endpoints (for backward compatibility)
+# ============================================
 
 @router.get("/history")
 async def get_history():
-    """Get chat history"""
+    """Get chat history (legacy)"""
     return history_service.load_history()
 
 @router.delete("/history")
 async def clear_history():
-    """Clear chat history"""
+    """Clear chat history (legacy)"""
     history_service.clear_history()
     return {"status": "success", "message": "History cleared"}
 
@@ -26,7 +111,7 @@ async def chat(request: ChatRequest):
     """AI-powered chat endpoint with email context"""
     
     # Save user message
-    history_service.save_message("user", request.message)
+    history_service.save_message("user", request.message, request.session_id)
     
     message_lower = request.message.lower()
     
@@ -115,12 +200,12 @@ async def chat(request: ChatRequest):
         
         response = await ai_service.chat_with_context(request.message, full_context)
         
-        history_service.save_message("assistant", response)
+        history_service.save_message("assistant", response, request.session_id)
         return {"response": response}
     
     # Regular chat without email context
     response = await ai_service.chat(request.message)
-    history_service.save_message("assistant", response)
+    history_service.save_message("assistant", response, request.session_id)
     return {"response": response}
 
 

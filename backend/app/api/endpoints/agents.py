@@ -1,7 +1,12 @@
 import asyncio
 import json
+import random
 from fastapi import APIRouter
 from sse_starlette.sse import EventSourceResponse
+from pydantic import BaseModel
+from typing import Optional
+
+from app.services.ai_service import ai_service
 
 router = APIRouter()
 
@@ -13,9 +18,39 @@ AGENTS = [
     {"agent_id": "reply-writer", "name": "Reply Writer", "role": "Generation", "status": "idle", "progress": 0, "logs": [], "current_task": "Idle"},
 ]
 
+class ReplyRequest(BaseModel):
+    email_subject: str
+    email_body: str
+    sender: str
+    tone: str = "professional"
+
 @router.get("/status")
 async def get_agent_status():
     return {"status": "success", "agents": AGENTS}
+
+@router.post("/reply/generate")
+async def generate_reply(request: ReplyRequest):
+    """Generate an AI reply for an email"""
+    import asyncio
+    
+    # Simulate agent work
+    AGENTS[3]["status"] = "working" # Reply Writer
+    AGENTS[3]["current_task"] = f"Drafting reply to {request.sender}"
+    AGENTS[3]["progress"] = 20
+    
+    # Generate content
+    reply = await ai_service.generate_email_reply(
+        request.email_subject,
+        request.email_body,
+        request.sender,
+        request.tone
+    )
+    
+    AGENTS[3]["progress"] = 100
+    AGENTS[3]["status"] = "idle"
+    AGENTS[3]["current_task"] = "Reply generated"
+    
+    return {"status": "success", "reply": reply}
 
 @router.get("/events/stream")
 async def message_stream():
@@ -30,13 +65,12 @@ async def message_stream():
                 }
             
             # Simulate random agent activity occasionally
-            # In a real app, this would listen to a redis queue or internal event bus
             if random.random() < 0.1:
                 agent = random.choice(AGENTS)
                 update = {
                     "type": "status",
                     "data": {
-                        "agents": AGENTS  # Should technically update state here
+                        "agents": AGENTS
                     }
                 }
                 yield {
@@ -45,5 +79,3 @@ async def message_stream():
                 }
     
     return EventSourceResponse(event_generator())
-
-import random
